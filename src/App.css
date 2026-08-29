@@ -1,0 +1,1420 @@
+/*
+ * App.css — bildorak v0 화면 스타일.
+ * 디자인 확정 전 placeholder: 검증된 Trust Blue 라이트 톤을 색/타이포 값 그대로 임시 이식한 것.
+ * 정식 디자인 패스는 향후 로드맵에서 다시 손 본다.
+ */
+
+:root {
+  --ink-0: #f8fafc; /* 앱 배경 */
+  --ink-1: #ffffff; /* 카드 표면 */
+  --ink-2: #f1f5f9; /* 은은하게 띄운 영역(사이드바) */
+  --ink-3: #e2e8f0;
+  --line: #d6dee9;
+  --line-soft: #e2e8f0;
+  --text-0: #0f172a; /* 제목 */
+  --text-1: #1e293b; /* 강한 본문 */
+  --text-2: #26334a; /* 본문/힌트 */
+  --text-3: #33415a; /* 라벨/보조 */
+  --text-4: #465067; /* 최보조 */
+  --brand: #2563eb;
+  --brand-hover: #1d4ed8;
+  --ok: #10b981;
+  --ok-bg: rgba(16, 185, 129, 0.1);
+  --ok-border: rgba(16, 185, 129, 0.4);
+  --warn: #d97706;
+  --warn-bg: rgba(217, 119, 6, 0.08);
+  --warn-border: rgba(217, 119, 6, 0.35);
+  --crit: #e11d48;
+  --crit-bg: rgba(225, 29, 72, 0.08);
+  --crit-border: rgba(225, 29, 72, 0.35);
+  --info-bg: rgba(37, 99, 235, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: "Pretendard", "Apple SD Gothic Neo", "Inter", system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  color: var(--text-1);
+  background-color: var(--ink-0);
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+}
+
+.app-shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── 사이드바(프로젝트/설정 자리) ───────────────────────────────────────── */
+
+.sidebar {
+  width: 200px;
+  flex-shrink: 0;
+  background-color: var(--ink-2);
+  border-right: 1px solid var(--line-soft);
+  padding: 20px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sidebar-brand {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-0);
+  letter-spacing: -0.01em;
+  padding: 4px 10px 16px;
+}
+
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-2);
+  cursor: default;
+}
+
+.sidebar-item.active {
+  background-color: var(--ink-1);
+  color: var(--brand);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+/* Sidebar.tsx 가 "프로젝트"/"설정" 항목을 <button> 으로 렌더한다(화면 전환) — .sidebar-item 의 레이아웃
+   은 그대로 물려받고, 여기서 버튼 기본 스타일(테두리/배경)만 지운다. */
+.sidebar-item-button {
+  width: 100%;
+  border: none;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sidebar-item-button:hover:not(.active) {
+  background-color: rgba(148, 163, 184, 0.12);
+}
+
+/* ── 메인 영역 ──────────────────────────────────────────────────────────── */
+
+.main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 32px 48px;
+}
+
+.topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.page-eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--brand);
+  margin-bottom: 4px;
+}
+
+.page-title {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-0);
+  margin: 0;
+}
+
+.page-hint {
+  margin-top: 6px;
+  max-width: 640px;
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.6;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s, opacity 0.15s;
+  white-space: nowrap;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.btn-primary {
+  background-color: var(--brand);
+  color: #ffffff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--brand-hover);
+}
+
+.btn-outline {
+  background-color: var(--ink-1);
+  border-color: var(--line);
+  color: var(--text-1);
+}
+
+.btn-outline:hover:not(:disabled) {
+  border-color: rgba(37, 99, 235, 0.4);
+  background-color: var(--ink-2);
+}
+
+.btn-danger {
+  background-color: var(--crit);
+  color: #ffffff;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background-color: #be123c;
+}
+
+.btn-danger-text {
+  background: none;
+  border: none;
+  color: var(--crit);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.btn-danger-text:hover {
+  text-decoration: underline;
+}
+
+/* "서명 비밀번호 다시 등록"/"이 앱에서 연결 해제"처럼 실제로는 위험하지 않은 텍스트 버튼 — 예전엔
+   이 둘도 btn-danger-text(빨강)를 그대로 써서 "빌도락에서 제거"와 뭉뚱그려 다 위험해 보였다(리뷰
+   지적). 위험한 건 제거 하나뿐이라는 걸 색으로 구분한다(signing-key-actions-danger 와 짝 — 아래). */
+.btn-text-secondary {
+  background: none;
+  border: none;
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.btn-text-secondary:hover:not(:disabled) {
+  color: var(--text-1);
+  text-decoration: underline;
+}
+
+/* ── 배너(에러) ─────────────────────────────────────────────────────────── */
+
+.banner-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  border: 1px solid var(--crit-border);
+  background-color: var(--crit-bg);
+  color: var(--crit);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+/* ── 카드 그리드 ────────────────────────────────────────────────────────── */
+
+.project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+}
+
+.card {
+  min-width: 0;
+  border-radius: 12px;
+  border: 1px solid var(--line-soft);
+  background-color: var(--ink-1);
+  padding: 18px;
+}
+
+.card-empty {
+  border-style: dashed;
+  text-align: center;
+  color: var(--text-3);
+  padding: 32px 16px;
+}
+
+.card-empty .empty-action {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand);
+}
+
+.card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.card-title {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-0);
+}
+
+.card-platforms {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.card-path {
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: var(--text-4);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  word-break: break-all;
+}
+
+/* ── 뱃지(pill) ─────────────────────────────────────────────────────────── */
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  padding: 2px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-3);
+  background-color: transparent;
+}
+
+.pill-ok {
+  border-color: var(--ok-border);
+  background-color: var(--ok-bg);
+  color: #047857;
+}
+
+.pill-warn {
+  border-color: var(--warn-border);
+  background-color: var(--warn-bg);
+  color: #b45309;
+}
+
+.pill-crit {
+  border-color: var(--crit-border);
+  background-color: var(--crit-bg);
+  color: #be123c;
+}
+
+.pill-info {
+  border-color: rgba(37, 99, 235, 0.4);
+  background-color: var(--info-bg);
+  color: var(--brand);
+}
+
+.pill-idle {
+  border-color: var(--line-soft);
+  background-color: rgba(148, 163, 184, 0.08);
+  color: var(--text-3);
+}
+
+.os-tag {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-4);
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  padding: 1px 7px;
+  white-space: nowrap;
+}
+
+/* ── 카드 본문(버전/다음 행동) ───────────────────────────────────────────── */
+
+.kv-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  border-top: 1px solid var(--line-soft);
+  padding-top: 10px;
+  margin-bottom: 12px;
+}
+
+.kv-label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-4);
+}
+
+.kv-value {
+  margin-top: 2px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 13px;
+  color: var(--text-1);
+}
+
+.next-action {
+  border-radius: 8px;
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  background-color: var(--info-bg);
+  color: var(--brand);
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+
+.card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+/* ── 점검 결과 리스트 ───────────────────────────────────────────────────── */
+
+.check-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.check-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--line-soft);
+  background-color: rgba(241, 245, 249, 0.5);
+  padding: 8px 10px;
+}
+
+.check-icon {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.check-icon.ok {
+  color: #059669;
+}
+
+.check-icon.warn {
+  color: #b45309;
+}
+
+.check-icon.fail {
+  color: #be123c;
+}
+
+.check-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.check-label-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.check-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+
+.check-message {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.check-next-action {
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: #b45309;
+}
+
+.footer-note {
+  border-top: 1px solid var(--line-soft);
+  padding-top: 8px;
+  font-size: 11px;
+  color: var(--text-4);
+}
+
+/* ── 로컬 빌드(2차) ─────────────────────────────────────────────────────── */
+
+.build-section {
+  border-top: 1px solid var(--line-soft);
+  padding-top: 12px;
+  margin-bottom: 12px;
+}
+
+.build-section-label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-4);
+  margin-bottom: 8px;
+}
+
+.build-status-box {
+  margin-top: 4px;
+  border-radius: 8px;
+  border: 1px solid var(--line-soft);
+  background-color: rgba(241, 245, 249, 0.5);
+  padding: 10px 12px;
+}
+
+.build-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.build-status-time {
+  font-size: 11px;
+  color: var(--text-4);
+}
+
+.build-headline {
+  margin-top: 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+
+.build-detail {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.build-artifact {
+  margin-top: 4px;
+  font-size: 11.5px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  color: var(--text-3);
+  word-break: break-all;
+}
+
+.build-log-toggle {
+  margin-top: 8px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--brand);
+  cursor: pointer;
+}
+
+.build-log-toggle:hover {
+  text-decoration: underline;
+}
+
+/* ── 빌드 히스토리(2단계) ──────────────────────────────────────────────── */
+
+.history-section {
+  margin-top: 10px;
+  border-top: 1px solid var(--line-soft);
+  padding-top: 10px;
+}
+
+.history-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--brand);
+  cursor: pointer;
+}
+
+.history-toggle:hover {
+  text-decoration: underline;
+}
+
+.history-empty {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.history-items {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-radius: 6px;
+  border: 1px solid var(--line-soft);
+  background-color: rgba(241, 245, 249, 0.5);
+  padding: 6px 8px;
+  font-size: 11.5px;
+}
+
+.history-item-target {
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.history-item-time {
+  color: var(--text-4);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+
+.history-item-duration {
+  margin-left: auto;
+  color: var(--text-4);
+}
+
+.history-locked {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-radius: 8px;
+  border: 1px dashed var(--line);
+  background-color: var(--info-bg);
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.history-locked p {
+  margin: 0;
+}
+
+.build-log {
+  margin-top: 6px;
+  max-height: 220px;
+  overflow: auto;
+  border-radius: 6px;
+  border: 1px solid var(--line-soft);
+  background-color: var(--ink-0);
+  padding: 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-2);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* ── 서명키(출시 준비 1차 골격) ──────────────────────────────────────────── */
+
+.signing-section {
+  border-top: 1px solid var(--line-soft);
+  padding-top: 12px;
+  margin-bottom: 12px;
+}
+
+.signing-section-label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-4);
+  margin-bottom: 8px;
+}
+
+.signing-key-list {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.signing-key-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--line-soft);
+  background-color: rgba(241, 245, 249, 0.5);
+  padding: 8px 10px;
+}
+
+.signing-key-icon {
+  margin-top: 2px;
+  flex-shrink: 0;
+  color: var(--text-3);
+}
+
+.signing-key-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.signing-key-name-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.signing-key-name {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-1);
+  word-break: break-all;
+}
+
+.signing-key-meta {
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+
+.signing-key-linked-apps {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-4);
+}
+
+.signing-key-actions {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* "빌도락에서 제거"(위험) 버튼만 감싼다 — 왼쪽 여백을 밀어 오른쪽 끝으로, 구분선으로 앞의 안전한
+   버튼(서명 비밀번호 등록/연결 해제)과 시각적으로 떼어 놓는다("위험도별 뚜렷한 분리", 확정된 설계). */
+.signing-key-actions-danger {
+  display: inline-flex;
+  margin-left: auto;
+  padding-left: 12px;
+  border-left: 1px solid var(--line-soft);
+}
+
+.signing-available-list {
+  margin-top: 4px;
+  border-top: 1px dashed var(--line-soft);
+  padding-top: 10px;
+}
+
+/* ── Android release 서명 자동 주입(다음 단계) ─────────────────────────────── */
+
+.android-signing-form {
+  flex-basis: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line-soft);
+  background-color: var(--ink-0);
+}
+
+.android-signing-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.android-signing-field input {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-1);
+  background-color: var(--ink-1);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.android-signing-field input:focus {
+  outline: none;
+  border-color: var(--brand);
+}
+
+.android-signing-error {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--crit);
+}
+
+/* ── 내 컴퓨터에서 찾기(자동 탐색, 다음 단계) ─────────────────────────────── */
+
+.found-keys-panel {
+  border-top: 1px dashed var(--line-soft);
+  padding-top: 10px;
+  margin-top: 4px;
+  margin-bottom: 12px;
+}
+
+.found-keys-group {
+  margin-top: 10px;
+}
+
+/* "혹시 이건가?" 하이라이트 — appId 일치 또는 파일명/경로에 프로젝트 폴더 이름이 포함되면(copy.ts::
+   foundKeyMatchesProject) 이 클래스가 signing-key-item 과 함께 붙는다. border-color 만 바꾸면 다른
+   항목과 두께가 달라 보여 레이아웃이 흔들리니, 테두리는 그대로 두고 box-shadow 로 같은 두께의
+   "스트로크"를 겹쳐 그린다. 선택자를 .signing-key-item.signing-key-item-recommended(합성 선택자)로
+   써서 specificity 를 올려 둔다 — 단일 클래스로만 쓰면 다크모드 .signing-key-item 배경 규칙(파일 맨
+   아래 media 블록, 소스 순서상 더 뒤)이 이겨서 강조 배경색이 다크모드에서만 사라진다. */
+.signing-key-item.signing-key-item-recommended {
+  border-color: var(--brand);
+  background-color: var(--info-bg);
+  box-shadow: 0 0 0 1px var(--brand);
+}
+
+.banner-success {
+  margin: 0 0 10px;
+  border: 1px solid var(--ok-border);
+  background-color: var(--ok-bg);
+  color: #047857;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+/* ── 모달(범용, "내 컴퓨터에서 찾기" 결과 표시용) ───────────────────────────── */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 100;
+  animation: modal-backdrop-in 0.15s ease-out;
+}
+
+.modal-dialog {
+  width: 100%;
+  max-width: 560px;
+  max-height: min(720px, calc(100vh - 48px));
+  display: flex;
+  flex-direction: column;
+  background-color: var(--ink-1);
+  border-radius: 12px;
+  border: 1px solid var(--line-soft);
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.25);
+  outline: none;
+  animation: modal-dialog-in 0.15s ease-out;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line-soft);
+  flex-shrink: 0;
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-0);
+}
+
+.modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+.modal-close:hover {
+  background-color: var(--ink-2);
+  color: var(--text-1);
+}
+
+.modal-close:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.modal-body {
+  overflow-y: auto;
+  padding: 16px 18px 20px;
+}
+
+/* "빌도락에서 제거" 확인 모달 본문 — signing-key-meta(11.5px, 보조색)는 확인 문구로 쓰기엔 너무
+   옅어서 조금 더 또렷한 크기/색으로 별도 클래스를 둔다. */
+.confirm-remove-text {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--text-1);
+  line-height: 1.6;
+}
+
+.confirm-remove-text strong {
+  color: var(--text-0);
+}
+
+/* found-keys-panel 은 원래 인라인 섹션 맨 위 구분선 용도로 top border 를 갖고 있었다 — 모달 안에서는
+   모달 헤더 밑줄과 겹쳐 줄이 두 개로 보이니 지운다(SigningKeysSection.tsx 문서 참고). */
+.modal-body .found-keys-panel {
+  border-top: none;
+  margin-top: 0;
+  padding-top: 0;
+}
+
+@keyframes modal-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-backdrop,
+  .modal-dialog {
+    animation: none;
+  }
+}
+
+/* ── 스피너 ─────────────────────────────────────────────────────────────── */
+
+.spinner {
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── 설정 화면 ──────────────────────────────────────────────────────────── */
+
+.settings-view {
+  max-width: 640px;
+}
+
+.settings-section {
+  border-radius: 12px;
+  border: 1px solid var(--line-soft);
+  background-color: var(--ink-1);
+  padding: 18px;
+  margin-bottom: 16px;
+}
+
+.settings-section-title {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-0);
+}
+
+.settings-hint {
+  margin: 0 0 10px;
+  font-size: 12.5px;
+  color: var(--text-3);
+  line-height: 1.5;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.settings-row-input {
+  align-items: stretch;
+}
+
+.settings-row-toggle {
+  justify-content: space-between;
+}
+
+.settings-text-input {
+  flex: 1;
+  min-width: 0;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 12.5px;
+  color: var(--text-1);
+  background-color: var(--ink-0);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 12px;
+  min-height: 44px;
+}
+
+.settings-text-input:focus {
+  outline: none;
+  border-color: var(--brand);
+}
+
+.settings-select {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+  background-color: var(--ink-0);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 12px;
+  min-height: 40px;
+}
+
+.settings-status {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.settings-status-ok {
+  color: #047857;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+
+.settings-segmented {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.settings-segment {
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-3);
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.settings-segment.active {
+  background-color: var(--brand);
+  color: #ffffff;
+}
+
+.settings-toggle {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 40px;
+  height: 24px;
+  cursor: pointer;
+}
+
+.settings-toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+}
+
+.settings-toggle-track {
+  position: absolute;
+  inset: 0;
+  background-color: var(--ink-3);
+  border-radius: 999px;
+  transition: background-color 0.15s;
+}
+
+.settings-toggle-track::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background-color: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.25);
+  transition: transform 0.15s;
+}
+
+.settings-toggle input:checked + .settings-toggle-track {
+  background-color: var(--brand);
+}
+
+.settings-toggle input:checked + .settings-toggle-track::before {
+  transform: translateX(16px);
+}
+
+.settings-toggle input:focus-visible + .settings-toggle-track {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.settings-vault-path {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  color: var(--text-2);
+  word-break: break-all;
+}
+
+.settings-about-line {
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: var(--text-1);
+}
+
+/* ── CLI / 자동화 섹션 ─────────────────────────────────────────────────────
+   settings-hint 아래 명령 목록 — 앱 전체가 <table> 을 쓰지 않는 관례(카드/행 div)를 그대로 따른다. */
+
+.cli-command-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+
+.cli-command-row {
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background-color: var(--ink-0);
+  padding: 10px 12px;
+}
+
+.cli-command-name {
+  display: block;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-0);
+}
+
+.cli-command-desc {
+  margin: 4px 0 8px;
+  font-size: 12.5px;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
+.cli-command-example {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-top: 1px solid var(--line-soft);
+  padding-top: 8px;
+}
+
+.cli-command-example code {
+  flex: 1;
+  min-width: 0;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--text-3);
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.cli-command-example .btn-text-secondary {
+  flex-shrink: 0;
+}
+
+.settings-cli-binary-hint {
+  margin-top: 4px;
+  margin-bottom: 0;
+}
+
+/* ── 테마(system/light/dark) ────────────────────────────────────────────────
+   settings-context.tsx::applyTheme 이 <html data-theme="light"|"dark"> 를 토글한다("system" 이면
+   속성을 아예 지운다). 시스템 다크 팔레트는 media query 로 적용하되 data-theme="light" 로 명시
+   고정했을 때는 제외한다(:not 가드) — 그리고 data-theme="dark" 명시 선택은 시스템 설정과 무관하게
+   무조건 다크를 적용하는 별도 블록으로 반복한다. 색 값 자체는 두 블록에서 동일(단일 팔레트를 두
+   선택자로 노출할 뿐). */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ink-0: #0b1120;
+    --ink-1: #131b2c;
+    --ink-2: #0e1524;
+    --ink-3: #1e293b;
+    --line: #263349;
+    --line-soft: #1e293b;
+    --text-0: #f1f5f9;
+    --text-1: #e2e8f0;
+    --text-2: #b9c4d6;
+    --text-3: #94a3b8;
+    --text-4: #64748b;
+
+    /* 의미색(ok/warn/crit)·브랜드·배지 텍스트 다크값 — 코드 리뷰 지적(crit/ok/warn/info 배경+글자,
+       brand, pill/badge 계열이 라이트값 그대로라 다크 배경에서 대비 부족) 대응. WCAG AA(4.5:1) 목표로
+       상대휘도(relative luminance) 계산해서 산출:
+       - ok/warn 은 버튼 배경 등 이중 역할이 없어 밝은 톤(L≈0.50/0.58)으로 카드/틴트 배경 모두 6.9~10.3:1.
+       - brand/crit 은 텍스트이자 버튼 배경(위에 흰 글자, btn-primary/btn-danger)이라 이중 제약 —
+         텍스트 4.5:1 최솟값 쪽(L≈0.235)을 택해 텍스트는 4.2~4.7:1(틴트 배경일수록 낮음), 버튼 위 흰
+         글자는 ~3.7:1(텍스트 AA 는 근소 미달이나 WCAG 1.4.11 UI 컴포넌트 3:1 은 충족 — 토큰 하나가 두
+         역할 겸용이라 생기는 절충, 텍스트/버튼용 토큰 분리는 이번 범위 밖). hover 는 반대로 더 진하게
+         눌러 대비를 오히려 올린다(brand-hover 는 라이트 --brand 값 #2563eb 재사용 → 흰 글자 5.17:1).
+       - pill/뱃지/아이콘처럼 버튼 배경 제약이 없는 순수 텍스트는 crit/brand 보다 한 단계 밝은 값
+         (#fb7185/#60a5fa)으로 아래에서 컴포넌트별 override — 틴트 배경 위에서도 5.8~6.0:1 확보. */
+    --brand: #3b82f6;
+    --brand-hover: #2563eb;
+    --ok: #34d399;
+    --ok-bg: rgba(16, 185, 129, 0.16);
+    --ok-border: rgba(16, 185, 129, 0.5);
+    --warn: #fbbf24;
+    --warn-bg: rgba(217, 119, 6, 0.16);
+    --warn-border: rgba(217, 119, 6, 0.5);
+    --crit: #f43f5e;
+    --crit-bg: rgba(225, 29, 72, 0.14);
+    --crit-border: rgba(225, 29, 72, 0.5);
+    --info-bg: rgba(59, 130, 246, 0.1);
+  }
+
+  :root:not([data-theme="light"]) .check-item {
+    background-color: rgba(30, 41, 59, 0.4);
+  }
+
+  :root:not([data-theme="light"]) .build-status-box {
+    background-color: rgba(30, 41, 59, 0.4);
+  }
+
+  :root:not([data-theme="light"]) .history-item {
+    background-color: rgba(30, 41, 59, 0.4);
+  }
+
+  :root:not([data-theme="light"]) .signing-key-item {
+    background-color: rgba(30, 41, 59, 0.4);
+  }
+
+  :root:not([data-theme="light"]) .pill-ok {
+    color: #34d399;
+  }
+
+  :root:not([data-theme="light"]) .pill-warn {
+    color: #fbbf24;
+  }
+
+  :root:not([data-theme="light"]) .pill-crit {
+    color: #fb7185;
+  }
+
+  :root:not([data-theme="light"]) .pill-info {
+    color: #60a5fa;
+  }
+
+  :root:not([data-theme="light"]) .check-icon.ok {
+    color: #34d399;
+  }
+
+  :root:not([data-theme="light"]) .check-icon.warn {
+    color: #fbbf24;
+  }
+
+  :root:not([data-theme="light"]) .check-icon.fail {
+    color: #fb7185;
+  }
+
+  :root:not([data-theme="light"]) .check-next-action {
+    color: #fbbf24;
+  }
+
+  :root:not([data-theme="light"]) .banner-success {
+    color: #34d399;
+  }
+
+  :root:not([data-theme="light"]) .settings-status-ok {
+    color: #34d399;
+  }
+
+  :root:not([data-theme="light"]) .next-action {
+    color: #60a5fa;
+  }
+
+  /* btn-danger 는 --crit 를 배경으로 쓰는 이중 역할 토큰이라 hover 를 밝게 하면 흰 글자 대비가 더
+     떨어진다(라이트와 반대 방향) — 라이트 --crit 값(#e11d48, 흰 글자 기준 ~4.7:1)을 다크 hover 로
+     재사용해 눌렀을 때 오히려 대비가 오르게 한다. */
+  :root:not([data-theme="light"]) .btn-danger:hover:not(:disabled) {
+    background-color: #e11d48;
+  }
+}
+
+:root[data-theme="dark"] {
+  --ink-0: #0b1120;
+  --ink-1: #131b2c;
+  --ink-2: #0e1524;
+  --ink-3: #1e293b;
+  --line: #263349;
+  --line-soft: #1e293b;
+  --text-0: #f1f5f9;
+  --text-1: #e2e8f0;
+  --text-2: #b9c4d6;
+  --text-3: #94a3b8;
+  --text-4: #64748b;
+
+  /* 근거는 위 @media (prefers-color-scheme: dark) 블록의 동일 주석 참고 — 값은 두 티어 byte-identical. */
+  --brand: #3b82f6;
+  --brand-hover: #2563eb;
+  --ok: #34d399;
+  --ok-bg: rgba(16, 185, 129, 0.16);
+  --ok-border: rgba(16, 185, 129, 0.5);
+  --warn: #fbbf24;
+  --warn-bg: rgba(217, 119, 6, 0.16);
+  --warn-border: rgba(217, 119, 6, 0.5);
+  --crit: #f43f5e;
+  --crit-bg: rgba(225, 29, 72, 0.14);
+  --crit-border: rgba(225, 29, 72, 0.5);
+  --info-bg: rgba(59, 130, 246, 0.1);
+}
+
+:root[data-theme="dark"] .check-item {
+  background-color: rgba(30, 41, 59, 0.4);
+}
+
+:root[data-theme="dark"] .build-status-box {
+  background-color: rgba(30, 41, 59, 0.4);
+}
+
+:root[data-theme="dark"] .history-item {
+  background-color: rgba(30, 41, 59, 0.4);
+}
+
+:root[data-theme="dark"] .signing-key-item {
+  background-color: rgba(30, 41, 59, 0.4);
+}
+
+:root[data-theme="dark"] .pill-ok {
+  color: #34d399;
+}
+
+:root[data-theme="dark"] .pill-warn {
+  color: #fbbf24;
+}
+
+:root[data-theme="dark"] .pill-crit {
+  color: #fb7185;
+}
+
+:root[data-theme="dark"] .pill-info {
+  color: #60a5fa;
+}
+
+:root[data-theme="dark"] .check-icon.ok {
+  color: #34d399;
+}
+
+:root[data-theme="dark"] .check-icon.warn {
+  color: #fbbf24;
+}
+
+:root[data-theme="dark"] .check-icon.fail {
+  color: #fb7185;
+}
+
+:root[data-theme="dark"] .check-next-action {
+  color: #fbbf24;
+}
+
+:root[data-theme="dark"] .banner-success {
+  color: #34d399;
+}
+
+:root[data-theme="dark"] .settings-status-ok {
+  color: #34d399;
+}
+
+:root[data-theme="dark"] .next-action {
+  color: #60a5fa;
+}
+
+/* btn-danger 는 --crit 를 배경으로 쓰는 이중 역할 토큰이라 hover 를 밝게 하면 흰 글자 대비가 더
+   떨어진다(라이트와 반대 방향) — 라이트 --crit 값(#e11d48, 흰 글자 기준 ~4.7:1)을 다크 hover 로
+   재사용해 눌렀을 때 오히려 대비가 오르게 한다. */
+:root[data-theme="dark"] .btn-danger:hover:not(:disabled) {
+  background-color: #e11d48;
+}

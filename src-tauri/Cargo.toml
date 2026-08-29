@@ -1,0 +1,46 @@
+[package]
+name = "bildorak"
+version = "0.1.0"
+description = "빌도락(임시명) — 로컬 앱 빌드/릴리즈 GUI"
+authors = ["Gradibo"]
+edition = "2021"
+# bin 이 2개(bildorak GUI, bildorak-cli)라 `cargo run`(tauri dev 가 사용)이 대상을 못 고른다 —
+# 기본 실행은 GUI 로 고정 (CLI 는 항상 `--bin bildorak-cli` 로 명시 실행).
+default-run = "bildorak"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "bildorak_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+# CLI(1차 범위, bildorak-cli) — GUI("bildorak", src/main.rs)와 같은 패키지 안의 두 번째 바이너리. 파일명이
+# "cli.rs"라 이름을 명시하지 않으면 cargo 가 자동으로 "cli"라는 bin 을 만든다 — GUI 가 이미 "bildorak"을
+# 쓰고 있어(패키지 이름과 충돌) "bildorak-cli"로 명시한다.
+[[bin]]
+name = "bildorak-cli"
+path = "src/bin/cli.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri-plugin-dialog = "2.7.2"
+uuid = { version = "1.24.0", features = ["v4"] }
+chrono = { version = "0.4.45", features = ["clock"] }
+sysinfo = "0.39.6"
+tauri-plugin-notification = "2.3.3"
+# CLI(bildorak-cli)와 GUI(store.rs)가 app config dir 을 공유하는 데 쓴다(paths.rs) — Tauri 가 이미
+# app_config_dir() 내부에서 쓰는 크레이트라 Cargo.lock 에 6.0.0 으로 이미 고정돼 있다(실측 확인).
+dirs = "6.0.0"
+# CLI(bildorak-cli) 인자 파싱.
+clap = { version = "4", features = ["derive"] }
+# CLI(bildorak-cli) 빌드 중 Ctrl+C 로 취소 처리.
+ctrlc = "3"
+
