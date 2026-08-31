@@ -12,6 +12,14 @@ iOS `.ipa`)를 로컬에서 만들어주는 데스크톱 GUI입니다. CI 서비
 
 > ⚠️ 초기 / 포트폴리오 단계 프로젝트입니다. 현재는 macOS 중심이에요 (iOS 빌드는 Xcode 필요).
 
+## 설치
+
+[최신 릴리스](https://github.com/gradibo/bildorak/releases/latest)에서 `bildorak_x.y.z_aarch64.dmg` 를 받아
+Applications 로 드래그하면 끝이에요 (macOS, Apple Silicon).
+
+- 첫 실행 시 "확인할 수 없는 개발자" 경고가 뜨면 **앱 우클릭 - 열기 - 열기** (아직 Apple 공증 전이라 뜨는 정상 경고예요)
+- 설치 후엔 새 버전이 나오면 앱이 알아서 알려줍니다 (자동 업데이트)
+
 ## 주요 기능
 
 - **로컬 빌드** - 안드로이드 디버그(`apk`)·릴리스(`aab`), iOS 시뮬레이터·릴리스(`ipa`, App Store export)

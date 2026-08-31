@@ -43,4 +43,11 @@ dirs = "6.0.0"
 clap = { version = "4", features = ["derive"] }
 # CLI(bildorak-cli) 빌드 중 Ctrl+C 로 취소 처리.
 ctrlc = "3"
+# 자동 업데이트(Tauri 공식 updater) — 시작 시 GitHub Releases 의 latest.json 을 확인해 새 버전이 있으면
+# 앱 안에서 내려받아 설치한다(App.tsx/UpdateModal.tsx). 서명 공개키는 tauri.conf.json 의
+# plugins.updater.pubkey, 개인키 생성/보관/빌드 방법은 docs/RELEASING.md 참고(레포 밖 ~/.tauri/ 에
+# 보관, 커밋 금지).
+tauri-plugin-updater = "2"
+# 위 업데이터가 설치를 마친 뒤 앱을 재시작(relaunch)하는 데 쓴다.
+tauri-plugin-process = "2"
 

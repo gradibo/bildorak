@@ -438,6 +438,11 @@ pub struct AppSettings {
     /// 도입 이전 동작 그대로, 무회귀).
     #[serde(default = "default_true")]
     pub build_notifications_enabled: bool,
+    /// 앱 시작 시 GitHub Releases 새 버전을 조용히 확인할지(자동 업데이트, UpdateModal.tsx) — 기본 켬.
+    /// 꺼도 설정 자체는 남아 있고 프론트가 시작 시 check() 호출을 건너뛸 뿐이다(Rust 쪽은 게이트하지
+    /// 않는다 — build_notifications_enabled 와 달리 이 값을 읽는 커맨드가 없다).
+    #[serde(default = "default_true")]
+    pub auto_update_check_enabled: bool,
 }
 
 impl Default for AppSettings {
@@ -447,6 +452,7 @@ impl Default for AppSettings {
             language: default_language(),
             theme: default_theme(),
             build_notifications_enabled: true,
+            auto_update_check_enabled: true,
         }
     }
 }

@@ -172,6 +172,18 @@ mod tests {
         let settings = load_settings_from_dir(&dir);
         assert_eq!(settings.flutter_path, None);
         assert!(settings.build_notifications_enabled);
+        assert!(settings.auto_update_check_enabled);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn load_settings_from_dir_defaults_auto_update_check_when_field_missing_from_old_file() {
+        // 이 설정 도입 이전에 저장된 settings.json(필드 없음)을 읽어도 기본값(켬)으로 채워져야 한다 —
+        // build_notifications_enabled 도입 때와 동일한 무회귀 보장(파일 상단 문서 참고).
+        let dir = temp_base_dir();
+        fs::write(dir.join(SETTINGS_FILE), r#"{"flutterPath":null,"language":"ko","theme":"system"}"#).unwrap();
+        let settings = load_settings_from_dir(&dir);
+        assert!(settings.auto_update_check_enabled);
         let _ = fs::remove_dir_all(&dir);
     }
 

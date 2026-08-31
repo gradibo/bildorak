@@ -19,6 +19,11 @@
 // settings.rs::resolve_flutter_bin 으로 설정된 flutter 경로가 있으면 그걸 쓰고, 없으면 기존 그대로
 // PATH 의 "flutter"로 물러난다(무회귀). 빌드 완료 알림은 이 설정(buildNotificationsEnabled)으로
 // commands.rs::start_build 가 게이트한다.
+// 그 위: 자동 업데이트(Tauri 공식 updater) — 앱 시작 시 프론트(UpdateModal.tsx)가 조용히 GitHub
+// Releases 의 latest.json 을 확인하고, 새 버전이 있으면 모달로 안내한다. updater/process 플러그인을
+// 여기 등록하고, 실제 서명 검증(pubkey)/엔드포인트는 tauri.conf.json 의 plugins.updater 설정,
+// 권한은 capabilities/default.json 의 updater:default/process:default 가 담당한다(이 파일은 등록만).
+// 자동 확인 여부는 AppSettings::auto_update_check_enabled(기본 켬)로 프론트에서 게이트한다.
 
 // 아래 mod 전부 pub — 3단계(bildorak-cli) 착수: 같은 크레이트의 2번째 bin
 // (src/bin/cli.rs)이 AppHandle 없이 이 코어 모듈들을 직접 호출한다(paths::base_dir() + *_from_dir 계열
@@ -41,6 +46,8 @@ pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![
             commands::pick_project_folder,
             commands::register_project,

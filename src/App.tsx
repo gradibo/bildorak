@@ -6,6 +6,7 @@ import "./App.css";
 import { Sidebar } from "./components/Sidebar";
 import { ProjectCard } from "./components/ProjectCard";
 import { SettingsView } from "./components/SettingsView";
+import { UpdateModal } from "./components/UpdateModal";
 import { CheckStatusIcon } from "./components/Icons";
 import {
   listProjects,
@@ -80,6 +81,7 @@ function App() {
 
   return (
     <div className="app-shell">
+      <UpdateModal />
       <Sidebar active={view} onSelect={setView} />
       <main className="main">
         {view === "settings" ? (

@@ -247,6 +247,23 @@ export function SettingsView() {
       </section>
 
       <section className="settings-section">
+        <div className="settings-row settings-row-toggle">
+          <div>
+            <h2 className="settings-section-title">{t("settings.update.label")}</h2>
+            <p className="settings-hint">{t("settings.update.hint")}</p>
+          </div>
+          <label className="settings-toggle">
+            <input
+              type="checkbox"
+              checked={settings.autoUpdateCheckEnabled}
+              onChange={(e) => void updateSettings({ autoUpdateCheckEnabled: e.target.checked })}
+            />
+            <span className="settings-toggle-track" />
+          </label>
+        </div>
+      </section>
+
+      <section className="settings-section">
         <h2 className="settings-section-title">{t("settings.vault.label")}</h2>
         {vaultError && (
           <div className="banner-error">

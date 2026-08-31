@@ -25,6 +25,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   language: "ko",
   theme: "system",
   buildNotificationsEnabled: true,
+  autoUpdateCheckEnabled: true,
 };
 
 interface SettingsContextValue {

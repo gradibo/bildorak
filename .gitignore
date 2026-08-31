@@ -36,3 +36,7 @@ key.properties
 *.pfx
 *.key
 secrets/
+
+# 릴리스 산출물 — scripts/make-latest-json.mjs 가 로컬에서 재생성한다(docs/RELEASING.md). GitHub
+# Releases 에 asset 으로 올릴 뿐 레포에는 안 남긴다.
+/latest.json

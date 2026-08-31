@@ -12,6 +12,15 @@ Free and open source (MIT). Built with Tauri 2 + React + Rust.
 
 > ⚠️ Early-stage / portfolio project. macOS is the primary target (iOS builds require Xcode).
 
+## Install
+
+Grab `bildorak_x.y.z_aarch64.dmg` from the [latest release](https://github.com/gradibo/bildorak/releases/latest)
+and drag it into Applications (macOS, Apple Silicon).
+
+- On first launch, if you see an "unidentified developer" warning: **right-click the app - Open - Open**
+  (expected until Apple notarization lands)
+- Once installed, the app notifies you when a new version is available (auto-update)
+
 ## Features
 
 - **Local builds** - Android debug (`apk`), iOS simulator debug, Android release (`aab`),

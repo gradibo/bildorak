@@ -933,6 +933,16 @@ button {
   padding-top: 0;
 }
 
+/* 업데이트 알림 모달(UpdateModal.tsx) 본문 — 릴리스 노트는 confirm-remove-text 와 시각은 같지만
+   줄바꿈이 있는 자유 텍스트라 white-space: pre-wrap 이 필요해 별도 클래스를 둔다. */
+.update-release-notes {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--text-1);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
 @keyframes modal-backdrop-in {
   from {
     opacity: 0;

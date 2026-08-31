@@ -237,6 +237,8 @@ export interface AppSettings {
   language: Language;
   theme: ThemePreference;
   buildNotificationsEnabled: boolean;
+  /** 앱 시작 시 GitHub Releases 새 버전을 조용히 확인할지(자동 업데이트) — 기본 켬. */
+  autoUpdateCheckEnabled: boolean;
 }
 
 // ── CLI / 자동화(3단계, bildorak-cli) — model.rs 의 CliCommandDoc 과 1:1 대응. ──
