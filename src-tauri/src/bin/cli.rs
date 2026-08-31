@@ -1,34 +1,34 @@
-// bin/cli.rs — bildorak-cli: 빌도락 GUI(src-tauri/src, bin "bildorak")가 쓰는 것과 완전히 같은 앱
+// bin/cli.rs - bildorak-cli: 빌도락 GUI(src-tauri/src, bin "bildorak")가 쓰는 것과 완전히 같은 앱
 // 데이터(paths::base_dir(), 실측: macOS 에선 ~/Library/Application Support/com.gradibo.bildorak)를
-// 그대로 읽고 써서, 터미널에서 등록된 Flutter 앱을 빌드/점검한다(3단계, 1차 범위 — 빌드 중심). GUI
+// 그대로 읽고 써서, 터미널에서 등록된 Flutter 앱을 빌드/점검한다(3단계, 1차 범위 - 빌드 중심). GUI
 // 프로세스와 완전히 독립된 별도 바이너리라 GUI 를 띄우지 않고도 쓸 수 있다(같은 Cargo 패키지의 2번째
-// [[bin]] — lib.rs 의 pub mod 선언 덕분에 AppHandle 없이 코어 모듈을 직접 호출한다).
+// [[bin]] - lib.rs 의 pub mod 선언 덕분에 AppHandle 없이 코어 모듈을 직접 호출한다).
 //
 // 엔진 원칙(commands.rs 파일 상단 주석과 동일하게 유지): 실제 실행 bin/argv 는 여기서 절대 직접
-// 조립하지 않는다 — build::start_build(target: BuildTarget) 하나만 부르고, 실제 flutter 인자는 항상
+// 조립하지 않는다 - build::start_build(target: BuildTarget) 하나만 부르고, 실제 flutter 인자는 항상
 // build::resolve_command() 의 고정 맵(또는 release 서명/export 주입, build.rs 안에서만)에서 나온다. 이
-// 파일은 verbose/--info 류 플래그를 어떤 경로로도 추가하지 않는다(build.rs:990-992 경고 — gradle -P
+// 파일은 verbose/--info 류 플래그를 어떤 경로로도 추가하지 않는다(build.rs:990-992 경고 - gradle -P
 // 비밀번호가 로그에 평문으로 샌다).
 //
-// 비밀 값(keystore/keychain 비밀번호 등)은 이 파일 어디에서도 읽거나 출력하지 않는다 — `keys` 는
+// 비밀 값(keystore/keychain 비밀번호 등)은 이 파일 어디에서도 읽거나 출력하지 않는다 - `keys` 는
 // signing::load_signing_keys 가 돌려주는 SigningKeyRecord 를 그대로 보여줄 뿐이고, 그 타입 자체가
-// 비밀번호를 담지 않는다(model.rs::SigningKeyRecord 문서 참고 — keychain 서비스 "이름"(참조)만 있다).
+// 비밀번호를 담지 않는다(model.rs::SigningKeyRecord 문서 참고 - keychain 서비스 "이름"(참조)만 있다).
 //
-// 종료 코드: 성공 0 / 실패(비0) — Ctrl+C 로 빌드를 취소하면 130(=128+SIGINT, 셸 표준 관례). `status`/
+// 종료 코드: 성공 0 / 실패(비0) - Ctrl+C 로 빌드를 취소하면 130(=128+SIGINT, 셸 표준 관례). `status`/
 // `doctor` 는 점검 결과에 fail 항목이 하나라도 있으면 1(스크립트에서 `&&` 로 이어 쓸 수 있게).
 
 use bildorak_lib::build::{self, BuildObserver};
 use bildorak_lib::model::{
     overall_status_of, BuildJob, BuildJobStatus, BuildStatus, BuildTarget, CheckItem, CheckStatus,
-    PreflightRun, ProjectRecord, SigningKeyRecord,
+    PreflightRun, ProjectRecord, ReleaseChannel, ReleaseRecord, ReleaseStatus, SigningKeyRecord,
 };
-use bildorak_lib::{paths, preflight, signing, store};
+use bildorak_lib::{paths, preflight, releases, signing, store};
 use clap::{Parser, Subcommand, ValueEnum};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 #[derive(Parser)]
-#[command(name = "bildorak-cli", version, about = "빌도락 CLI — 등록된 Flutter 앱을 터미널에서 빌드/점검해요.")]
+#[command(name = "bildorak-cli", version, about = "빌도락 CLI - 등록된 Flutter 앱을 터미널에서 빌드/점검해요.")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -49,7 +49,7 @@ enum Commands {
         /// 빌드 대상.
         #[arg(long)]
         target: CliTarget,
-        /// 완료 후 구조적 JSON 으로 출력해요(진행 중 로그는 표준출력에 흘리지 않아요 — 표준출력은 끝의
+        /// 완료 후 구조적 JSON 으로 출력해요(진행 중 로그는 표준출력에 흘리지 않아요 - 표준출력은 끝의
         /// JSON 객체 하나만 나가야 스크립트가 안전하게 파이프할 수 있어요).
         #[arg(long)]
         json: bool,
@@ -70,11 +70,18 @@ enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// 등록된 앱의 릴리스 기록을 보여줘요(읽기 전용).
+    Releases {
+        /// 등록된 앱 이름(GUI 의 pubspec.yaml name 그대로).
+        app: String,
+        #[arg(long)]
+        json: bool,
+    },
 }
 
-/// CLI `--target` 값 ↔ 코어(model::BuildTarget) 매핑 — model.rs::BuildTarget 은 코어(Tauri 참조 0, 설계
+/// CLI `--target` 값 ↔ 코어(model::BuildTarget) 매핑 - model.rs::BuildTarget 은 코어(Tauri 참조 0, 설계
 /// 문서의 실측 그대로)라 clap 의존을 여기(CLI 전용 어댑터)에서만 붙인다. 네 값 모두 이름을
-/// 명시로 고정한다 — model.rs 의 serde snake_case(BuildTarget::as_str())와는 다른 규칙이고, 특히
+/// 명시로 고정한다 - model.rs 의 serde snake_case(BuildTarget::as_str())와는 다른 규칙이고, 특히
 /// "ios-sim"은 "ios_sim_debug"를 기계적으로 하이픈 변환한 값이 아니라 의도적으로 줄인 별칭이라 clap
 /// 기본 케이스 변환에 기대지 않는다.
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -108,6 +115,7 @@ fn main() {
         Commands::Status { app, json } => cmd_status(app, json),
         Commands::Keys { json } => cmd_keys(json),
         Commands::Doctor { json } => cmd_doctor(json),
+        Commands::Releases { app, json } => cmd_releases(app, json),
     };
     std::process::exit(code);
 }
@@ -124,9 +132,9 @@ fn fail(message: &str) -> i32 {
 }
 
 /// 이름으로 등록된 프로젝트를 찾는다. 앱 이름은 pubspec.yaml 의 name 필드 그대로라 유일성이 보장되지
-/// 않는다 — 서로 다른 경로에 같은 이름의 Flutter 프로젝트를 각각 등록할 수 있다(의도된 동작). 매치가
+/// 않는다 - 서로 다른 경로에 같은 이름의 Flutter 프로젝트를 각각 등록할 수 있다(의도된 동작). 매치가
 /// 없으면 Ok(None)(호출부가 app_not_found_message 로 처리), 정확히 1개면 Ok(Some(..)), 2개 이상이면
-/// Err(..) — 조용히 첫 번째를 골라 엉뚱한 경로의 앱을 빌드/조회하는 사고를 막는다.
+/// Err(..) - 조용히 첫 번째를 골라 엉뚱한 경로의 앱을 빌드/조회하는 사고를 막는다.
 fn find_project(projects: &[ProjectRecord], name: &str) -> Result<Option<ProjectRecord>, String> {
     let matches: Vec<&ProjectRecord> = projects.iter().filter(|p| p.name == name).collect();
     match matches.as_slice() {
@@ -139,7 +147,7 @@ fn find_project(projects: &[ProjectRecord], name: &str) -> Result<Option<Project
                 .collect::<Vec<_>>()
                 .join("\n");
             Err(format!(
-                "'{name}' 이름의 앱이 여러 개 등록돼 있어요 — 경로가 다른 동명 앱이 여러 개예요. 어느 걸 \
+                "'{name}' 이름의 앱이 여러 개 등록돼 있어요 - 경로가 다른 동명 앱이 여러 개예요. 어느 걸 \
                  쓸지 특정할 수 없어요.\n{listed}"
             ))
         }
@@ -149,7 +157,7 @@ fn find_project(projects: &[ProjectRecord], name: &str) -> Result<Option<Project
 fn app_not_found_message(name: &str, projects: &[ProjectRecord]) -> String {
     if projects.is_empty() {
         format!(
-            "등록된 앱을 찾지 못했어요: {name} (등록된 앱이 아직 없어요 — 빌도락 GUI 에서 먼저 등록해 주세요.)"
+            "등록된 앱을 찾지 못했어요: {name} (등록된 앱이 아직 없어요 - 빌도락 GUI 에서 먼저 등록해 주세요.)"
         )
     } else {
         let names: Vec<&str> = projects.iter().map(|p| p.name.as_str()).collect();
@@ -179,6 +187,28 @@ fn build_job_status_label(status: BuildJobStatus) -> &'static str {
         BuildJobStatus::Running => "진행 중",
         BuildJobStatus::Success => "성공",
         BuildJobStatus::Failed => "실패",
+    }
+}
+
+/// types.ts::RELEASE_STATUS_LABEL 과 같은 문구 - cmd_releases 사람용 출력이 {:?}(PascalCase Debug) 대신
+/// 이 한국어 라벨을 쓴다(build_job_status_label 선례).
+fn release_status_label(status: ReleaseStatus) -> &'static str {
+    match status {
+        ReleaseStatus::Preparing => "준비 중",
+        ReleaseStatus::Submitted => "심사 제출",
+        ReleaseStatus::Approved => "승인됨",
+        ReleaseStatus::Rejected => "반려",
+        ReleaseStatus::Released => "출시됨",
+    }
+}
+
+/// types.ts::RELEASE_CHANNEL_LABEL 과 같은 문구 - release_status_label 과 동일 목적.
+fn release_channel_label(channel: ReleaseChannel) -> &'static str {
+    match channel {
+        ReleaseChannel::AppStore => "App Store",
+        ReleaseChannel::PlayStore => "Play Store",
+        ReleaseChannel::Github => "GitHub",
+        ReleaseChannel::Other => "기타",
     }
 }
 
@@ -275,8 +305,8 @@ fn cmd_keys(json: bool) -> i32 {
         Err(e) => return fail(&e),
     };
     if json {
-        // SigningKeyRecord 는 어떤 필드에도 비밀 값을 담지 않는다(model.rs 문서 — keychain 서비스
-        // "이름"(참조)만 있을 뿐 비밀번호 원문은 없다) — 그대로 직렬화해도 안전하다.
+        // SigningKeyRecord 는 어떤 필드에도 비밀 값을 담지 않는다(model.rs 문서 - keychain 서비스
+        // "이름"(참조)만 있을 뿐 비밀번호 원문은 없다) - 그대로 직렬화해도 안전하다.
         println!("{}", serde_json::to_string_pretty(&keys).unwrap_or_default());
     } else if keys.is_empty() {
         println!("등록된 서명키가 없어요.");
@@ -325,9 +355,53 @@ fn cmd_doctor(json: bool) -> i32 {
     }
 }
 
+// ── releases ───────────────────────────────────────────────────────────────
+
+fn cmd_releases(app: String, json: bool) -> i32 {
+    let base_dir = match resolve_base_dir() {
+        Ok(d) => d,
+        Err(code) => return code,
+    };
+    let projects = match store::load_projects_from_dir(&base_dir) {
+        Ok(p) => p,
+        Err(e) => return fail(&e),
+    };
+    let project = match find_project(&projects, &app) {
+        Ok(Some(p)) => p,
+        Ok(None) => return fail(&app_not_found_message(&app, &projects)),
+        Err(e) => return fail(&e),
+    };
+
+    let mut app_releases: Vec<ReleaseRecord> = match releases::load_releases_from_dir(&base_dir) {
+        Ok(r) => r.into_iter().filter(|r| r.project_id == project.id).collect(),
+        Err(e) => return fail(&e),
+    };
+    // GUI(commands.rs::list_releases)와 동일하게 최신순(created_at desc)으로 보여준다.
+    app_releases.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(&app_releases).unwrap_or_default());
+    } else if app_releases.is_empty() {
+        println!("등록된 릴리스 기록이 없어요.");
+    } else {
+        for r in &app_releases {
+            let build_label = r.build_number.as_deref().unwrap_or("-");
+            println!(
+                "{}\t빌드 {}\t{}\t{}\t{}",
+                r.version,
+                build_label,
+                release_status_label(r.status),
+                release_channel_label(r.channel),
+                r.created_at
+            );
+        }
+    }
+    0
+}
+
 // ── build ──────────────────────────────────────────────────────────────────
 
-/// 사람용 출력 — 새 로그 줄을 그대로 표준출력에 흘려보낸다(터미널에서 `flutter build` 를 직접 돌리는
+/// 사람용 출력 - 새 로그 줄을 그대로 표준출력에 흘려보낸다(터미널에서 `flutter build` 를 직접 돌리는
 /// 것과 비슷한 체감을 준다).
 struct HumanLogObserver;
 impl BuildObserver for HumanLogObserver {
@@ -339,7 +413,7 @@ impl BuildObserver for HumanLogObserver {
     fn on_done(&mut self, _job: &BuildJob) {}
 }
 
-/// --json 모드 — 로그를 표준출력에 흘리지 않는다("--json이면 수집 후 최종 JSON" 설계 그대로 — 표준
+/// --json 모드 - 로그를 표준출력에 흘리지 않는다("--json이면 수집 후 최종 JSON" 설계 그대로 - 표준
 /// 출력은 끝에 JSON 객체 하나만 나가야 스크립트가 안전하게 파이프할 수 있다).
 struct SilentObserver;
 impl BuildObserver for SilentObserver {
@@ -347,10 +421,10 @@ impl BuildObserver for SilentObserver {
     fn on_done(&mut self, _job: &BuildJob) {}
 }
 
-/// `is_running` 이 false 가 되거나 max_wait 이 지날 때까지 interval 간격으로 짧게 기다린다 —
+/// `is_running` 이 false 가 되거나 max_wait 이 지날 때까지 interval 간격으로 짧게 기다린다 -
 /// SIGINT 취소 직후 monitor 스레드가 build_jobs.json 에 최종 상태를 다 쓸 시간을 준다. 순수 로직만
 /// 분리해서(상태 조회는 클로저로 주입) 실제 job/프로세스 없이도 테스트한다. 타임아웃에 도달해도 에러
-/// 없이 그냥 반환한다 — 못 벗어나는 극단적인 경우엔 기존 reconcile_stale_job(build.rs)이 다음 조회 때
+/// 없이 그냥 반환한다 - 못 벗어나는 극단적인 경우엔 기존 reconcile_stale_job(build.rs)이 다음 조회 때
 /// 안전망으로 정리해 준다.
 fn wait_until_not_running<F: FnMut() -> bool>(max_wait: Duration, interval: Duration, mut is_running: F) {
     let deadline = Instant::now() + max_wait;
@@ -385,7 +459,7 @@ fn cmd_build(app: String, target: CliTarget, json: bool) -> i32 {
 
     if job.status != BuildJobStatus::Running {
         // start_build 는 spawn 자체가 즉시 실패한 경우(예: 이미 진행 중, 프로젝트 폴더 없음)도
-        // Ok(job)(status=Failed)로 돌려준다(build.rs::spawn_build_job 문서 참고) — 여기서 바로 결과를
+        // Ok(job)(status=Failed)로 돌려준다(build.rs::spawn_build_job 문서 참고) - 여기서 바로 결과를
         // 보여주고 실패로 끝낸다.
         print_final_build_status(&base_dir, &project, json);
         return 1;
@@ -405,10 +479,10 @@ fn cmd_build(app: String, target: CliTarget, json: bool) -> i32 {
         if ctrlc::set_handler(move || {
             eprintln!("\n취소 요청을 받았어요. 빌드를 중단할게요...");
             let _ = build::cancel_build(&cancel_base_dir, &cancel_project);
-            // cancel_build 는 kill 신호만 보내고 바로 돌아온다 — build_jobs.json 에 최종 상태(Failed)를
+            // cancel_build 는 kill 신호만 보내고 바로 돌아온다 - build_jobs.json 에 최종 상태(Failed)를
             // 실제로 쓰는 건 spawn_build_job 이 띄운 monitor 스레드(비동기, try_wait 500ms 폴링)다. 여기서
             // 바로 exit(130) 하면 프로세스 전체가 그 자리에서 죽어 monitor 스레드가 파일을 못 쓴 채 끊기고,
-            // job 이 Running 으로 남는다 — 나중에 reconcile_stale_job 이 이걸 stale 로 판정해 "비정상
+            // job 이 Running 으로 남는다 - 나중에 reconcile_stale_job 이 이걸 stale 로 판정해 "비정상
             // 종료된 것으로 보여요" 라는 부정확한 문구로 덮어쓴다(정상 취소인데 에러처럼 보인다). 그래서
             // exit 전에 monitor 스레드가 파일을 다 쓸 때까지 최대 5초, 250ms 간격으로 짧게 기다린다.
             wait_until_not_running(Duration::from_secs(5), Duration::from_millis(250), || {
@@ -423,7 +497,7 @@ fn cmd_build(app: String, target: CliTarget, json: bool) -> i32 {
         .is_err()
         {
             eprintln!(
-                "경고: Ctrl+C 핸들러를 등록하지 못했어요 — 취소는 여전히 GUI 또는 다른 터미널에서 가능해요."
+                "경고: Ctrl+C 핸들러를 등록하지 못했어요 - 취소는 여전히 GUI 또는 다른 터미널에서 가능해요."
             );
         }
     }
@@ -451,7 +525,7 @@ fn cmd_build(app: String, target: CliTarget, json: bool) -> i32 {
     }
 }
 
-/// build::get_build_status 를 다시 한번 불러 최종 결과(job + 로그 tail + 산출물 확인)를 출력한다 —
+/// build::get_build_status 를 다시 한번 불러 최종 결과(job + 로그 tail + 산출물 확인)를 출력한다 -
 /// --json 은 BuildStatus 를 그대로, 사람용은 상태/메모/산출물 존재 여부만 요약한다.
 fn print_final_build_status(base_dir: &Path, project: &ProjectRecord, json: bool) {
     let status = match build::get_build_status(base_dir, project) {

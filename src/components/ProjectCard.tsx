@@ -1,4 +1,4 @@
-// ProjectCard.tsx — 등록된 프로젝트 카드 하나.
+// ProjectCard.tsx - 등록된 프로젝트 카드 하나.
 // "빌드 준비 점검" 버튼 → Rust run_preflight 호출 → 통과/주의/실패 리스트 + "다음 행동" 문구.
 // "로컬 빌드" 버튼(2차) → Rust start_build 호출 → 진행 중/성공/실패 상태 + 산출물 확인 + 원본 로그 보기.
 // 톤은 디자인 확정 전 임시로 적용한 값이다(placeholder).
@@ -28,6 +28,7 @@ import {
   type SigningKeyRecord,
 } from "../lib/types";
 import { CheckStatusIcon, SpinnerIcon } from "./Icons";
+import { ReleasesSection } from "./ReleasesSection";
 import { SigningKeysSection } from "./SigningKeysSection";
 
 const STATUS_PILL_CLASS: Record<PreflightRun["overallStatus"], string> = {
@@ -42,7 +43,7 @@ const BUILD_STATUS_PILL_CLASS: Record<BuildJobStatus, string> = {
   failed: "pill-crit",
 };
 
-/** 진행 중일 때만 상태를 다시 물어보는 간격(ms) — 검증된 값 그대로 사용한다. */
+/** 진행 중일 때만 상태를 다시 물어보는 간격(ms) - 검증된 값 그대로 사용한다. */
 const BUILD_POLL_INTERVAL_MS = 4000;
 
 export function ProjectCard({
@@ -56,7 +57,7 @@ export function ProjectCard({
 }: {
   project: ProjectRecord;
   onRemoved: (id: string) => void;
-  /** 전역 서명키 목록(App.tsx 가 한 번만 불러와 모든 카드에 그대로 내려준다) — SigningKeysSection 참고. */
+  /** 전역 서명키 목록(App.tsx 가 한 번만 불러와 모든 카드에 그대로 내려준다) - SigningKeysSection 참고. */
   signingKeys: SigningKeyRecord[];
   projectNamesById: Record<string, string>;
   onSigningKeyRegistered: (key: SigningKeyRecord) => void;
@@ -84,14 +85,14 @@ export function ProjectCard({
     label: BUILD_TARGET_LABEL[PLATFORM_BUILD_TARGET[platform]],
   }));
 
-  // release 빌드(1차) — buildTargets 와 같은 platforms 에서 나오므로 항상 같은 개수다. 디버그 타겟과
+  // release 빌드(1차) - buildTargets 와 같은 platforms 에서 나오므로 항상 같은 개수다. 디버그 타겟과
   // 동일하게 게이트 없이 무료다(2026-08-16 전 사용자 무료 전환).
   const releaseBuildTargets = project.platforms.map((platform) => ({
     target: PLATFORM_RELEASE_BUILD_TARGET[platform],
     label: BUILD_TARGET_LABEL[PLATFORM_RELEASE_BUILD_TARGET[platform]],
   }));
 
-  // Android release 서명 자동 주입(다음 단계) — 이 프로젝트에 연결된 Android keystore 서명키 중
+  // Android release 서명 자동 주입(다음 단계) - 이 프로젝트에 연결된 Android keystore 서명키 중
   // 비밀번호까지 등록된 게 있으면 release 빌드가 자동으로 서명 + 검증까지 한다(build.rs). iOS 는 아직
   // 이 범위 밖(프로젝트 자체 서명 설정을 그대로 따름)이라 문구를 플랫폼별로 나눈다.
   const androidSigningReady = signingKeys.some(
@@ -138,18 +139,18 @@ export function ProjectCard({
       const status = await getBuildStatus(project.id);
       setBuildStatus(status);
     } catch {
-      // 상태 조회 실패는 조용히 무시 — 버튼 클릭이나 다음 폴링 때 다시 시도된다.
+      // 상태 조회 실패는 조용히 무시 - 버튼 클릭이나 다음 폴링 때 다시 시도된다.
     }
   }
 
-  // 최초 진입 시 한 번 — 이전 세션(앱 재시작 포함)에 시작된 빌드가 있으면 그 상태를 이어서 보여준다.
+  // 최초 진입 시 한 번 - 이전 세션(앱 재시작 포함)에 시작된 빌드가 있으면 그 상태를 이어서 보여준다.
   useEffect(() => {
     if (buildTargets.length === 0) return;
     void fetchBuildStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.id]);
 
-  // 진행 중일 때만 몇 초 간격으로 상태를 다시 물어본다 — 끝나면(성공/실패) 자동으로 멈춘다.
+  // 진행 중일 때만 몇 초 간격으로 상태를 다시 물어본다 - 끝나면(성공/실패) 자동으로 멈춘다.
   useEffect(() => {
     if (buildStatus?.job?.status !== "running") return;
     const intervalId = setInterval(() => void fetchBuildStatus(), BUILD_POLL_INTERVAL_MS);
@@ -157,7 +158,7 @@ export function ProjectCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.id, buildStatus?.job?.status]);
 
-  // "빌드 기록" 섹션을 열 때마다 다시 불러온다 — 매번 새로 불러오므로 방금 끝난 빌드도 접었다 펼치면
+  // "빌드 기록" 섹션을 열 때마다 다시 불러온다 - 매번 새로 불러오므로 방금 끝난 빌드도 접었다 펼치면
   // 바로 반영된다.
   useEffect(() => {
     if (!historyOpen) return;
@@ -185,7 +186,7 @@ export function ProjectCard({
     }
   };
 
-  // 무한 hang 시 앱 종료가 유일한 탈출구였던 상태 해소 — 진행 중인 빌드를 즉시 중단한다(설계
+  // 무한 hang 시 앱 종료가 유일한 탈출구였던 상태 해소 - 진행 중인 빌드를 즉시 중단한다(설계
   // 요구사항). 취소 직후 바로 상태를 다시 물어봐 "취소됨" 결과를 화면에 곧장 반영한다.
   const handleCancelBuild = async () => {
     if (cancelling) return;
@@ -251,7 +252,7 @@ export function ProjectCard({
       <div className="card-actions">
         <button type="button" className="btn btn-primary" disabled={running} onClick={() => void handleRunPreflight()}>
           {running && <SpinnerIcon />}
-          {running ? "점검 중…" : "빌드 준비 점검"}
+          {running ? "점검 중..." : "빌드 준비 점검"}
         </button>
       </div>
 
@@ -294,6 +295,12 @@ export function ProjectCard({
         onUpdated={onSigningKeyUpdated}
       />
 
+      <ReleasesSection
+        projectId={project.id}
+        projectVersionSnapshot={project.version}
+        projectBuildNumberSnapshot={project.buildNumber}
+      />
+
       {buildTargets.length > 0 && (
         <div className="build-section">
           <div className="build-section-label">로컬 빌드</div>
@@ -310,7 +317,7 @@ export function ProjectCard({
                   onClick={() => void handleStartBuild(target)}
                 >
                   {(isStarting || isThisRunning) && <SpinnerIcon />}
-                  {isThisRunning ? `${label} 실행 중…` : `${label} 실행`}
+                  {isThisRunning ? `${label} 실행 중...` : `${label} 실행`}
                 </button>
               );
             })}
@@ -337,7 +344,7 @@ export function ProjectCard({
                       onClick={() => void handleStartBuild(target)}
                     >
                       {(isStarting || isThisRunning) && <SpinnerIcon />}
-                      {isThisRunning ? `${label} 실행 중…` : `${label} 실행`}
+                      {isThisRunning ? `${label} 실행 중...` : `${label} 실행`}
                     </button>
                   );
                 })}
@@ -366,7 +373,7 @@ export function ProjectCard({
                     disabled={cancelling}
                     onClick={() => void handleCancelBuild()}
                   >
-                    {cancelling ? "취소하는 중…" : "빌드 취소"}
+                    {cancelling ? "취소하는 중..." : "빌드 취소"}
                   </button>
                 )}
               </div>
@@ -406,7 +413,7 @@ export function ProjectCard({
             </button>
             {historyOpen && (
               <div className="history-list">
-                {historyLoading && <p className="history-empty">불러오는 중…</p>}
+                {historyLoading && <p className="history-empty">불러오는 중...</p>}
                 {historyError && (
                   <div className="banner-error">
                     <CheckStatusIcon status="fail" />
@@ -438,7 +445,7 @@ export function ProjectCard({
 
       <div className="footer-note">
         <button type="button" className="btn-danger-text" disabled={removing} onClick={() => void handleRemove()}>
-          {removing ? "해제하는 중…" : "등록 해제"}
+          {removing ? "해제하는 중..." : "등록 해제"}
         </button>
       </div>
     </div>

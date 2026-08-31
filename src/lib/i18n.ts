@@ -1,6 +1,6 @@
-// i18n.ts — 가벼운 다국어 사전(설정 화면 "언어" 옵션). 무거운 라이브러리 대신 평범한 Record 하나로
+// i18n.ts - 가벼운 다국어 사전(설정 화면 "언어" 옵션). 무거운 라이브러리 대신 평범한 Record 하나로
 // 충분한 범위만 다룬다. ⚠️ 번역 대상은 설정 화면 자체 + 좌측 네비 + 일부 최상위 섹션 제목뿐이다
-// (settings-context.tsx 문서 참고) — 프로젝트 카드, 점검 결과(Rust 쪽에서 한국어로 내려옴), 에러
+// (settings-context.tsx 문서 참고) - 프로젝트 카드, 점검 결과(Rust 쪽에서 한국어로 내려옴), 에러
 // 문구 등은 이번 범위 밖이라 이 사전에 없다. 새 화면을 번역 대상에 추가하려면 키를 여기 추가하고
 // useSettings().t(key) 로 쓴다.
 
@@ -16,13 +16,15 @@ export const DICTIONARY = {
     "signing.signRow": "서명(도장)",
     "signing.uploadRow": "업로드(출입증)",
 
+    "releases.sectionTitle": "릴리스",
+
     "settings.eyebrow": "빌도락 설정",
     "settings.title": "설정",
     "settings.flutterSdk.label": "Flutter SDK 경로",
     "settings.flutterSdk.hint": "설정하지 않으면 시스템 PATH의 flutter 명령을 그대로 사용해요.",
     "settings.flutterSdk.detect": "자동 감지",
-    "settings.flutterSdk.detecting": "찾는 중…",
-    "settings.flutterSdk.checking": "확인하는 중…",
+    "settings.flutterSdk.detecting": "찾는 중...",
+    "settings.flutterSdk.checking": "확인하는 중...",
     "settings.language.label": "언어",
     "settings.theme.label": "테마",
     "settings.theme.system": "시스템",
@@ -40,7 +42,7 @@ export const DICTIONARY = {
     "settings.cli.copied": "복사됨",
     "settings.cli.loadError": "CLI 명령 목록을 불러오지 못했어요.",
     "settings.cli.binaryHint":
-      "아직 별도로 배포하는 바이너리는 없어요 — 소스에서 직접 빌드해요: cargo build --release 실행 후 " +
+      "아직 별도로 배포하는 바이너리는 없어요 - 소스에서 직접 빌드해요: cargo build --release 실행 후 " +
       "src-tauri/target/release/bildorak-cli 에서 찾을 수 있어요.",
     "settings.about.label": "정보",
     "settings.about.version": "버전",
@@ -50,9 +52,9 @@ export const DICTIONARY = {
     "update.modal.noReleaseNotes": "이번 업데이트의 릴리스 노트가 없어요.",
     "update.modal.later": "나중에",
     "update.modal.installNow": "지금 업데이트",
-    "update.modal.downloading": "다운로드하는 중…",
-    "update.modal.installing": "설치하는 중…",
-    "update.modal.relaunching": "다시 시작하는 중…",
+    "update.modal.downloading": "다운로드하는 중...",
+    "update.modal.installing": "설치하는 중...",
+    "update.modal.relaunching": "다시 시작하는 중...",
     "update.modal.error": "업데이트에 실패했어요. 잠시 후 다시 시도해 주세요.",
   },
   en: {
@@ -66,13 +68,15 @@ export const DICTIONARY = {
     "signing.signRow": "Signing",
     "signing.uploadRow": "Upload",
 
+    "releases.sectionTitle": "Releases",
+
     "settings.eyebrow": "bildorak settings",
     "settings.title": "Settings",
     "settings.flutterSdk.label": "Flutter SDK path",
     "settings.flutterSdk.hint": "If not set, bildorak uses the `flutter` command from your system PATH.",
     "settings.flutterSdk.detect": "Auto-detect",
-    "settings.flutterSdk.detecting": "Detecting…",
-    "settings.flutterSdk.checking": "Checking…",
+    "settings.flutterSdk.detecting": "Detecting...",
+    "settings.flutterSdk.checking": "Checking...",
     "settings.language.label": "Language",
     "settings.theme.label": "Theme",
     "settings.theme.system": "System",
@@ -90,7 +94,7 @@ export const DICTIONARY = {
     "settings.cli.copied": "Copied",
     "settings.cli.loadError": "Couldn't load the CLI command list.",
     "settings.cli.binaryHint":
-      "There's no separate distributed binary yet — build it from source: run cargo build --release, then " +
+      "There's no separate distributed binary yet - build it from source: run cargo build --release, then " +
       "find it at src-tauri/target/release/bildorak-cli.",
     "settings.about.label": "About",
     "settings.about.version": "Version",
@@ -100,9 +104,9 @@ export const DICTIONARY = {
     "update.modal.noReleaseNotes": "No release notes for this update.",
     "update.modal.later": "Later",
     "update.modal.installNow": "Update now",
-    "update.modal.downloading": "Downloading…",
-    "update.modal.installing": "Installing…",
-    "update.modal.relaunching": "Relaunching…",
+    "update.modal.downloading": "Downloading...",
+    "update.modal.installing": "Installing...",
+    "update.modal.relaunching": "Relaunching...",
     "update.modal.error": "Update failed. Please try again later.",
   },
 } as const;

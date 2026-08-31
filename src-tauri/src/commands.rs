@@ -1,18 +1,20 @@
-// commands.rs — 프론트(React)가 invoke() 로 부르는 Tauri 커맨드 전체.
+// commands.rs - 프론트(React)가 invoke() 로 부르는 Tauri 커맨드 전체.
 // 하드 제약(엔진 원칙): 프론트에서 실행 명령 문자열을 받지 않는다. 여기서 받는 파라미터는
 // (1) 네이티브 다이얼로그가 돌려준 폴더 경로(등록 시점, 사용자가 OS 창에서 직접 고른 값) 또는
-// (2) 이미 등록된 project_id 뿐이다 — 실제 실행 경로/argv 는 항상 이 파일 뒤(store/preflight)의
+// (2) 이미 등록된 project_id 뿐이다 - 실제 실행 경로/argv 는 항상 이 파일 뒤(store/preflight)의
 // 서버측 고정 로직이 결정한다.
 
 use crate::build;
 use crate::key_scan;
 use crate::model::{
     AppSettings, BuildJob, BuildJobStatus, BuildStatus, BuildTarget, CliCommandDoc, FoundKey,
-    FoundStoreKeyRecord, ImportAndroidSigningResult, KeySourceInfo, P8Subtype, PreflightRun, ProjectRecord,
-    SigningKeyKind, SigningKeyRecord,
+    FoundStoreKeyRecord, ImportAndroidSigningResult, KeySourceInfo, P8Subtype, PreflightRun,
+    ProjectCurrentVersion, ProjectRecord, ReleaseChannel, ReleaseRecord, ReleaseStatus, SigningKeyKind,
+    SigningKeyRecord,
 };
 use crate::preflight;
 use crate::pubspec;
+use crate::releases;
 use crate::settings;
 use crate::signing;
 use crate::store;
@@ -24,25 +26,25 @@ use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_notification::NotificationExt;
 
 /// pick_project_folder 가 고른 실제 경로를 register_project 가 쓸 때까지 Rust 프로세스 메모리에만
-/// 보관한다 — webview 로 원본 경로 문자열이 왕복하지 않게 한다(설계 요구사항 — "표면
-/// 축소"). 토큰은 1회용 — register_project 가 소비하면 즉시 제거한다.
+/// 보관한다 - webview 로 원본 경로 문자열이 왕복하지 않게 한다(설계 요구사항 - "표면
+/// 축소"). 토큰은 1회용 - register_project 가 소비하면 즉시 제거한다.
 static PICKED_FOLDERS: OnceLock<Mutex<HashMap<String, PathBuf>>> = OnceLock::new();
 
 fn picked_folders() -> &'static Mutex<HashMap<String, PathBuf>> {
     PICKED_FOLDERS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-/// pick_signing_key_file 이 고른 실제 파일 경로를 register_signing_key 가 쓸 때까지 보관한다 —
-/// picked_folders()/PICKED_FOLDERS 와 같은 목적(설계 요구사항 — "표면 축소")이지만 폴더
+/// pick_signing_key_file 이 고른 실제 파일 경로를 register_signing_key 가 쓸 때까지 보관한다 -
+/// picked_folders()/PICKED_FOLDERS 와 같은 목적(설계 요구사항 - "표면 축소")이지만 폴더
 /// 선택(프로젝트 등록)과 완전히 별개 흐름이라 맵을 따로 둔다. 서명키는 특히 민감한 파일이라 이
-/// 원칙을 그대로 지킨다 — webview 로 실제 경로 문자열이 왕복하지 않는다.
+/// 원칙을 그대로 지킨다 - webview 로 실제 경로 문자열이 왕복하지 않는다.
 static PICKED_SIGNING_FILES: OnceLock<Mutex<HashMap<String, PathBuf>>> = OnceLock::new();
 
 fn picked_signing_files() -> &'static Mutex<HashMap<String, PathBuf>> {
     PICKED_SIGNING_FILES.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-/// project_id 로 등록된 프로젝트 하나를 찾는다 — start_build/get_build_status 양쪽이 같은 조회를
+/// project_id 로 등록된 프로젝트 하나를 찾는다 - start_build/get_build_status 양쪽이 같은 조회를
 /// 반복하므로 한 곳으로 모은다.
 fn find_project(app: &AppHandle, project_id: &str) -> Result<ProjectRecord, String> {
     store::load_projects(app)?
@@ -51,15 +53,15 @@ fn find_project(app: &AppHandle, project_id: &str) -> Result<ProjectRecord, Stri
         .ok_or_else(|| "등록된 프로젝트를 찾지 못했어요.".to_string())
 }
 
-/// 서명키 관리 커맨드 공통 — base_dir 를 돌려준다. 서명키 "관리"(등록·보기·연결·만료 확인)와 실제
+/// 서명키 관리 커맨드 공통 - base_dir 를 돌려준다. 서명키 "관리"(등록·보기·연결·만료 확인)와 실제
 /// "서명 + 스토어 업로드"까지 전부 무료다(전부 로컬·비용 0, 무료 오픈소스라 게이트 없음).
 fn signing_base_dir(app: &AppHandle) -> Result<PathBuf, String> {
     store::app_config_dir(app)
 }
 
 /// 네이티브 "폴더 선택" 다이얼로그를 띄운다. 사용자가 취소하면 None. 반환값은 실제 경로 문자열이
-/// 아니라 picked_folders() 에 보관해 둔 결과를 가리키는 1회용 토큰이다 — register_project 가 이
-/// 토큰으로 실제 경로를 다시 찾는다(설계 요구사항 — webview 왕복 경로 문자열 표면 축소).
+/// 아니라 picked_folders() 에 보관해 둔 결과를 가리키는 1회용 토큰이다 - register_project 가 이
+/// 토큰으로 실제 경로를 다시 찾는다(설계 요구사항 - webview 왕복 경로 문자열 표면 축소).
 /// blocking_pick_folder() 는 메인 스레드에서 부르면 안 되므로 spawn_blocking 전용 스레드에서 실행.
 #[tauri::command]
 pub async fn pick_project_folder(app: AppHandle) -> Result<Option<String>, String> {
@@ -86,7 +88,7 @@ pub async fn pick_project_folder(app: AppHandle) -> Result<Option<String>, Strin
 }
 
 /// 고른 폴더 토큰(pick_project_folder 가 돌려준 값)으로 실제 경로를 찾아 pubspec.yaml 을 읽고 등록
-/// 목록에 저장한다. 토큰은 여기서 소비된다(1회용) — 등록이 실패해도 같은 토큰을 재사용하지 않고
+/// 목록에 저장한다. 토큰은 여기서 소비된다(1회용) - 등록이 실패해도 같은 토큰을 재사용하지 않고
 /// 프론트가 폴더 선택부터 다시 하게 한다(기존 흐름과 동일: "추가" 버튼을 다시 누르면 새로 고른다).
 #[tauri::command]
 pub async fn register_project(app: AppHandle, folder_token: String) -> Result<ProjectRecord, String> {
@@ -126,7 +128,7 @@ pub async fn list_projects(app: AppHandle) -> Result<Vec<ProjectRecord>, String>
     store::load_projects(&app)
 }
 
-/// 등록 해제 — 프로젝트 폴더 자체는 건드리지 않고 등록 목록에서만 제거한다.
+/// 등록 해제 - 프로젝트 폴더 자체는 건드리지 않고 등록 목록에서만 제거한다.
 #[tauri::command]
 pub async fn remove_project(app: AppHandle, project_id: String) -> Result<(), String> {
     let mut projects = store::load_projects(&app)?;
@@ -138,7 +140,7 @@ pub async fn remove_project(app: AppHandle, project_id: String) -> Result<(), St
     store::save_projects(&app, &projects)
 }
 
-/// 빌드 준비 점검 실행 — project_id 만 받는다. 실제 repoPath/명령은 등록된 값만 사용(엔진 원칙).
+/// 빌드 준비 점검 실행 - project_id 만 받는다. 실제 repoPath/명령은 등록된 값만 사용(엔진 원칙).
 /// 외부 프로세스를 여러 번 띄우고 최대 20초씩 기다릴 수 있어 spawn_blocking 으로 실행한다.
 #[tauri::command]
 pub async fn run_preflight(app: AppHandle, project_id: String) -> Result<PreflightRun, String> {
@@ -149,7 +151,7 @@ pub async fn run_preflight(app: AppHandle, project_id: String) -> Result<Preflig
         .map_err(|e| format!("점검을 완료하지 못했어요: {e}"))
 }
 
-/// 빌드 완료 알림(2단계, 2026-08-16 전 사용자 무료 전환) — start_build 가
+/// 빌드 완료 알림(2단계, 2026-08-16 전 사용자 무료 전환) - start_build 가
 /// job(running) 을 돌려준 직후에만 호출된다. build.rs 는 AppHandle 을 모르는 경계를 유지하므로
 /// (build.rs 파일 상단 주석) 완료 감지 자체를 그 내부 스레드에 맡기지 않고, 여기서 get_build_status 를
 /// 짧은 간격으로 다시 물어보다가 이 job_id 가 더 이상 running 이 아니면(=finalize_build_job 이 이미
@@ -172,20 +174,20 @@ fn spawn_build_finish_notifier(app: AppHandle, base_dir: PathBuf, project: Proje
                 break;
             };
             if job.id != job_id {
-                break; // 우리가 지켜보던 job 이 다른 job 으로 대체됐다 — 더 기다릴 이유 없음(조용히 종료).
+                break; // 우리가 지켜보던 job 이 다른 job 으로 대체됐다 - 더 기다릴 이유 없음(조용히 종료).
             }
             if job.status == BuildJobStatus::Running {
                 continue;
             }
             let result_label = if job.status == BuildJobStatus::Success { "성공" } else { "실패" };
-            let body = format!("{} — {}", project.name, result_label);
+            let body = format!("{} - {}", project.name, result_label);
             let _ = app.notification().builder().title("빌드 완료").body(body).show();
             break;
         }
     });
 }
 
-/// 로컬 빌드 실행(2차) — project_id + target(enum) 만 받는다. 실제 bin/args 는 build::resolve_command
+/// 로컬 빌드 실행(2차) - project_id + target(enum) 만 받는다. 실제 bin/args 는 build::resolve_command
 /// 의 고정 맵에서만 나온다(엔진 원칙, 파일 상단 주석과 동일). spawn 자체는 즉시 끝나고(child.wait() 는
 /// build.rs 내부 스레드가 백그라운드로 처리) job(running) 을 바로 돌려주므로 spawn_blocking 은 쓰지
 /// 않는다(register_project 등 다른 빠른 IO 커맨드와 같은 관례).
@@ -202,7 +204,7 @@ pub async fn start_build(
     let base_dir = store::app_config_dir(&app)?;
     let job = build::start_build(&base_dir, &project, target)?;
     // 실제로 백그라운드에서 도는 빌드이고, 설정 화면에서 빌드 완료 알림을 켜 뒀을 때만(기본값 켬,
-    // settings.rs::load_settings 문서 참고 — 읽기 실패해도 기존 동작대로 켬으로 물러나 무회귀) 완료
+    // settings.rs::load_settings 문서 참고 - 읽기 실패해도 기존 동작대로 켬으로 물러나 무회귀) 완료
     // 알림 스레드를 띄운다. spawn 자체가 즉시 실패한 경우(job.status == Failed)는 이미 화면에 에러가
     // 보이므로 알림까지 중복으로 띄우지 않는다.
     if job.status == BuildJobStatus::Running {
@@ -216,7 +218,7 @@ pub async fn start_build(
     Ok(job)
 }
 
-/// 빌드 상태 조회(2차) — 앱 진입 시 마지막 결과 복원 + 진행 중일 때 프론트 폴링 양쪽에 쓰인다.
+/// 빌드 상태 조회(2차) - 앱 진입 시 마지막 결과 복원 + 진행 중일 때 프론트 폴링 양쪽에 쓰인다.
 #[tauri::command]
 pub async fn get_build_status(app: AppHandle, project_id: String) -> Result<BuildStatus, String> {
     let project = find_project(&app, &project_id)?;
@@ -224,8 +226,8 @@ pub async fn get_build_status(app: AppHandle, project_id: String) -> Result<Buil
     build::get_build_status(&base_dir, &project)
 }
 
-/// 진행 중인 빌드를 취소한다(설계 요구사항) — project_id 만 받는다. 실제 kill 대상 pid 는 항상
-/// 서버측(Rust) 이 추적하는 값만 쓴다(엔진 원칙 — 프론트가 pid 를 직접 넘기지 않는다).
+/// 진행 중인 빌드를 취소한다(설계 요구사항) - project_id 만 받는다. 실제 kill 대상 pid 는 항상
+/// 서버측(Rust) 이 추적하는 값만 쓴다(엔진 원칙 - 프론트가 pid 를 직접 넘기지 않는다).
 #[tauri::command]
 pub async fn cancel_build(app: AppHandle, project_id: String) -> Result<(), String> {
     let project = find_project(&app, &project_id)?;
@@ -233,7 +235,7 @@ pub async fn cancel_build(app: AppHandle, project_id: String) -> Result<(), Stri
     build::cancel_build(&base_dir, &project)
 }
 
-/// 빌드 히스토리 조회(2단계, 2026-08-16 전 사용자 무료 전환) — project_id 만 받는다.
+/// 빌드 히스토리 조회(2단계, 2026-08-16 전 사용자 무료 전환) - project_id 만 받는다.
 #[tauri::command]
 pub async fn get_build_history(app: AppHandle, project_id: String) -> Result<Vec<BuildJob>, String> {
     let base_dir = store::app_config_dir(&app)?;
@@ -241,10 +243,10 @@ pub async fn get_build_history(app: AppHandle, project_id: String) -> Result<Vec
 }
 
 // ── 서명키 관리(출시 준비 1차 골격, 무료 오픈소스) ─────────────────────────────────
-// 실제 등록/파싱 로직은 signing.rs 가 담당한다 — 여기는 파일 토큰 관리 + 프로젝트
+// 실제 등록/파싱 로직은 signing.rs 가 담당한다 - 여기는 파일 토큰 관리 + 프로젝트
 // 존재 확인만 한다(엔진 원칙: 프론트는 파일 토큰/project_id/key_id 만 넘긴다).
 
-/// 네이티브 "파일 선택" 다이얼로그(서명키 등록용) — pick_project_folder 와 동일한 토큰 패턴(위
+/// 네이티브 "파일 선택" 다이얼로그(서명키 등록용) - pick_project_folder 와 동일한 토큰 패턴(위
 /// PICKED_SIGNING_FILES 주석 참고). 인증서/키 확장자로 필터를 걸어 두지만, 실제 종류 판정은 항상
 /// signing.rs::detect_kind 가 다시 한다(다이얼로그 필터는 사용자 편의일 뿐 신뢰 경계가 아니다).
 #[tauri::command]
@@ -297,9 +299,9 @@ pub async fn register_signing_key(app: AppHandle, file_token: String) -> Result<
         .map_err(|e| format!("서명키 정보를 확인하는 중 문제가 발생했어요: {e}"))?;
     let mut record = join_result?;
 
-    // Android keystore 는 원본을 안전 보관 볼트로 복사해 둔다(분실 대비 백업, 확정된 설계 결정) — 원본은
+    // Android keystore 는 원본을 안전 보관 볼트로 복사해 둔다(분실 대비 백업, 확정된 설계 결정) - 원본은
     // 절대 옮기거나 고치지 않는다(signing::copy_keystore_into_vault 문서 참고). iOS 인증서/API 키는
-    // 볼트 대상이 아니다(범위 밖 — signing.rs 파일 상단 주석 그대로 참조만 한다).
+    // 볼트 대상이 아니다(범위 밖 - signing.rs 파일 상단 주석 그대로 참조만 한다).
     if record.kind == SigningKeyKind::AndroidKeystore {
         let vault_dir = store::keystore_vault_dir(&app)?;
         let original_path = PathBuf::from(&record.file_path);
@@ -318,11 +320,11 @@ pub async fn register_signing_key(app: AppHandle, file_token: String) -> Result<
     Ok(record)
 }
 
-/// 등록 해제(완전 삭제) — signing_keys.json 목록에서만 제거한다. 원본 키 파일은 애초에 복사한 적이
+/// 등록 해제(완전 삭제) - signing_keys.json 목록에서만 제거한다. 원본 키 파일은 애초에 복사한 적이
 /// 없으니 건드릴 것도 없다(보안 원칙, signing.rs 파일 상단 주석). 여러 프로젝트에 연결돼 있었다면
 /// 전부에서 함께 사라진다(linked_project_ids 는 이 레코드에 속한 값이라 레코드가 없어지면 같이
-/// 없어진다) — 프론트(SigningKeysSection)가 삭제 전에 이 사실을 확인받는다. Android 서명 비밀번호를
-/// 등록해 뒀다면(android_signing) keychain 항목도 함께 지운다 — 참조를 잃은 비밀번호를 keychain 에
+/// 없어진다) - 프론트(SigningKeysSection)가 삭제 전에 이 사실을 확인받는다. Android 서명 비밀번호를
+/// 등록해 뒀다면(android_signing) keychain 항목도 함께 지운다 - 참조를 잃은 비밀번호를 keychain 에
 /// 영영 남겨두지 않는다(best-effort, 실패해도 레코드 삭제 자체는 이미 끝난 뒤라 무시해도 안전하다).
 #[tauri::command]
 pub async fn remove_signing_key(app: AppHandle, key_id: String) -> Result<(), String> {
@@ -344,7 +346,7 @@ pub async fn remove_signing_key(app: AppHandle, key_id: String) -> Result<(), St
     Ok(())
 }
 
-/// Android release 자동 서명 비밀번호 등록(다음 단계) — kind ==
+/// Android release 자동 서명 비밀번호 등록(다음 단계) - kind ==
 /// AndroidKeystore 인 서명키에만 허용한다. 비밀번호는 이 커맨드를 넘어가면(spawn_blocking 클로저 안)
 /// 메모리에서만 잠깐 머물고, 실제 저장은 macOS keychain 이 담당한다(signing::register_android_signing).
 /// 반환하는 SigningKeyRecord 에는 keychain 서비스 이름(참조)만 있을 뿐 비밀번호 원문은 없다.
@@ -366,10 +368,10 @@ pub async fn register_android_signing(
         return Err("Android keystore 파일에만 서명 비밀번호를 등록할 수 있어요.".to_string());
     }
     let previous_android_signing = existing.android_signing.clone();
-    // 등록 시점 인증서 겉정보(만료일/SHA-256) 추출에 쓸 실제 keystore 경로 — 볼트 사본이 있으면 그걸
+    // 등록 시점 인증서 겉정보(만료일/SHA-256) 추출에 쓸 실제 keystore 경로 - 볼트 사본이 있으면 그걸
     // 우선 쓴다(자체 완결 원칙, model.rs::SigningKeyRecord::vault_path 문서 참고). 이 기능 이전에
     // 등록된 레코드처럼 vault_path 가 없으면 원본(file_path)으로 물러난다. 파일이 그 사이 옮겨졌거나
-    // 지워졌어도 signing::read_android_keystore_cert_metadata 가 조용히 (None, None) 으로 물러난다 —
+    // 지워졌어도 signing::read_android_keystore_cert_metadata 가 조용히 (None, None) 으로 물러난다 -
     // 등록 자체는 계속 진행된다.
     let keystore_path = PathBuf::from(existing.vault_path.as_deref().unwrap_or(existing.file_path.as_str()));
 
@@ -389,7 +391,7 @@ pub async fn register_android_signing(
     let updated = key.clone();
     signing::save_signing_keys(&base_dir, &keys)?;
 
-    // alias 를 바꿔 다시 등록한 경우 keychain account 가 달라져 이전 항목이 고아가 된다 — 새 항목 저장이
+    // alias 를 바꿔 다시 등록한 경우 keychain account 가 달라져 이전 항목이 고아가 된다 - 새 항목 저장이
     // 이미 끝난 뒤에 best-effort 로 정리한다(성공 여부와 무관하게 새 비밀번호는 이미 안전하게 저장됨).
     if let Some(prev) = previous_android_signing {
         if prev.keychain_account != config.keychain_account {
@@ -400,8 +402,8 @@ pub async fn register_android_signing(
     Ok(updated)
 }
 
-/// 서명키를 프로젝트에 연결한다(다대다 — 하나의 인증서를 여러 앱에 쓸 수 있다). project_id 존재
-/// 확인까지 한다(find_project) — 등록 안 된 프로젝트에 연결해 두면 나중에 찾을 방법이 없어진다.
+/// 서명키를 프로젝트에 연결한다(다대다 - 하나의 인증서를 여러 앱에 쓸 수 있다). project_id 존재
+/// 확인까지 한다(find_project) - 등록 안 된 프로젝트에 연결해 두면 나중에 찾을 방법이 없어진다.
 #[tauri::command]
 pub async fn link_signing_key(
     app: AppHandle,
@@ -423,7 +425,7 @@ pub async fn link_signing_key(
     Ok(updated)
 }
 
-/// 서명키 연결 해제 — 이 프로젝트에서만 떼어낸다(레코드 자체는 남아 다른 프로젝트/미연결 목록에서
+/// 서명키 연결 해제 - 이 프로젝트에서만 떼어낸다(레코드 자체는 남아 다른 프로젝트/미연결 목록에서
 /// 계속 보인다). 프로젝트가 이미 삭제됐어도(project_id 가 더는 존재하지 않아도) 남은 연결을 정리할
 /// 수 있어야 하므로 link_signing_key 와 달리 find_project 검증은 하지 않는다.
 #[tauri::command]
@@ -445,7 +447,7 @@ pub async fn unlink_signing_key(
 }
 
 // ── 서명키/스토어 키 자동 탐색(다음 단계, keychain 이관 옵션 A) ──────────────────────────────
-// 실제 스캔/파싱/keychain 이관 로직은 key_scan.rs 가 담당한다 — 여기는 base_dir 조회 + project_id 존재
+// 실제 스캔/파싱/keychain 이관 로직은 key_scan.rs 가 담당한다 - 여기는 base_dir 조회 + project_id 존재
 // 확인만 한다(위 서명키 관리 커맨드들과 같은 "엔진 원칙" 경계). 무료 오픈소스라 게이트는 없다
 // (signing_base_dir 문서 참고).
 
@@ -462,7 +464,7 @@ pub async fn scan_signing_keys() -> Result<Vec<FoundKey>, String> {
 }
 
 /// 스캔으로 찾은 keystore/.p8 을 "등록"하기 전에 클라우드 온디맨드(다운로드 전) 상태인지 미리
-/// 확인한다(signing::inspect_key_source, stat 만 사용 — 파일을 열거나 다운로드를 유발하지 않는다).
+/// 확인한다(signing::inspect_key_source, stat 만 사용 - 파일을 열거나 다운로드를 유발하지 않는다).
 /// import_found_android_signing 이 내부적으로 거치는 copy_keystore_into_vault 가 최대 ~31초 재시도
 /// 하다 실패하는 것을 사용자가 매번 기다리지 않도록, 프론트(SigningKeysSection.tsx::FoundKeysPanel::
 /// handleImportClick)가 실제 가져오기 전에 먼저 이 커맨드로 판정해 즉시 안내한다(리뷰 지적). 아직
@@ -473,7 +475,7 @@ pub async fn inspect_key_source(path: String) -> Result<KeySourceInfo, String> {
     signing::inspect_key_source(Path::new(&path))
 }
 
-/// 클라우드 온디맨드 파일의 위치를 Finder 에서 강조 표시한다(reveal, `open -R <path>`) — 파일을 열거나
+/// 클라우드 온디맨드 파일의 위치를 Finder 에서 강조 표시한다(reveal, `open -R <path>`) - 파일을 열거나
 /// 다운로드를 유발하지 않는다(Finder 창이 그 파일을 선택한 채로 뜰 뿐). inspect_key_source 가 "아직
 /// 다운로드되지 않았어요" 로 판정했을 때 프론트가 [Finder에서 열기] 버튼으로 이 커맨드를 부른다.
 /// scan_signing_keys 가 이미 FoundKey.path 를 프론트에 내려주므로(표면 축소 예외, key_scan.rs 파일
@@ -499,7 +501,7 @@ pub async fn reveal_signing_key_in_finder(path: String) -> Result<(), String> {
 }
 
 /// 스캔으로 찾은 Android keystore 를 이 프로젝트에 등록 + 연결한다(옵션 A: key.properties 에 비밀번호가
-/// 있으면 keychain 으로 자동 이관). 실제 로직은 key_scan::import_android_signing 이 담당 — 그 함수가
+/// 있으면 keychain 으로 자동 이관). 실제 로직은 key_scan::import_android_signing 이 담당 - 그 함수가
 /// 프론트가 스캔 시점에 봤던 passwordsAvailable 을 그대로 믿지 않고 key.properties 를 다시 읽는다
 /// (TOCTOU 방지). project_id 존재 확인은 link_signing_key 와 동일하게 여기서 먼저 한다.
 #[tauri::command]
@@ -520,11 +522,11 @@ pub async fn import_found_android_signing(
 }
 
 /// 홑파일 keystore(등록 당시 옆에 key.properties 가 없는 경우)를 프로젝트에 등록·연결한 "다음" 자동으로
-/// 시도하는 비밀번호 채움(확정된 설계 결정) — 그 프로젝트 자체의 key.properties
+/// 시도하는 비밀번호 채움(확정된 설계 결정) - 그 프로젝트 자체의 key.properties
 /// (key_scan::find_project_key_properties, "<repo_path>/android/key.properties")에서 비밀번호를 찾아
 /// storeFile 이 이 keystore 로 정확히 resolve 될 때만(안전 매칭) keychain 에 자동 이관한다. 프론트
 /// (SigningKeysSection::handleAddKey)가 register_signing_key + link_signing_key 로 등록·연결까지 마친
-/// "다음", kind == android_keystore 이고 아직 androidSigning 이 없을 때만 호출한다 — 불일치/파일없음이면
+/// "다음", kind == android_keystore 이고 아직 androidSigning 이 없을 때만 호출한다 - 불일치/파일없음이면
 /// imported:false 를 돌려주고 프론트는 기존처럼 수동 입력 폼으로 폴백한다(추측 금지).
 #[tauri::command]
 pub async fn autofill_android_signing(
@@ -543,7 +545,7 @@ pub async fn autofill_android_signing(
     join_result
 }
 
-/// 스캔으로 찾은 .p8 을 "발견 기록"만 저장한다(가벼움, keychain 이관 없음) — .p8 은 아직 소비처가
+/// 스캔으로 찾은 .p8 을 "발견 기록"만 저장한다(가벼움, keychain 이관 없음) - .p8 은 아직 소비처가
 /// 없어(로드맵 #6 스토어 자동 업로드가 나중에 사용) 경로·Key ID·종류만 남겨 둔다.
 #[tauri::command]
 pub async fn register_found_store_key(
@@ -561,7 +563,7 @@ pub async fn register_found_store_key(
     join_result
 }
 
-/// 이미 "발견 기록"된 .p8 목록 — 프론트가 스캔 결과에서 이미 기록된 항목을 "기록됨"으로 표시하는 데
+/// 이미 "발견 기록"된 .p8 목록 - 프론트가 스캔 결과에서 이미 기록된 항목을 "기록됨"으로 표시하는 데
 /// 쓴다(SigningKeysSection.tsx::FoundKeysPanel).
 #[tauri::command]
 pub async fn list_found_store_keys(app: AppHandle) -> Result<Vec<FoundStoreKeyRecord>, String> {
@@ -569,12 +571,12 @@ pub async fn list_found_store_keys(app: AppHandle) -> Result<Vec<FoundStoreKeyRe
     key_scan::load_found_store_keys(&base_dir)
 }
 
-/// 등록된 프로젝트의 Android applicationId(우선)/namespace(폴백) — 서명키 체크리스트 화면(앱 라벨,
+/// 등록된 프로젝트의 Android applicationId(우선)/namespace(폴백) - 서명키 체크리스트 화면(앱 라벨,
 /// SigningKeysSection.tsx)에 쓴다. 새 로직 없음: key_scan::find_app_id_in_project_dir 를 그대로
-/// 재사용한다 — project.repo_path(pubspec.yaml 이 있는 실제 Flutter 프로젝트 루트)의 "android" 하위가
+/// 재사용한다 - project.repo_path(pubspec.yaml 이 있는 실제 Flutter 프로젝트 루트)의 "android" 하위가
 /// pubspec.rs::detect_platforms 가 Android 플랫폼을 감지하는 경로와 동일해, 그 디렉터리를 그대로 넘기면
 /// key.properties 없이도(이미 프로젝트 루트를 알고 있으니 climbing 불필요) applicationId 를 곧장 찾을 수
-/// 있다. android 폴더가 없거나 build.gradle 파싱에 실패해도 조용히 None — 화면은 앱 이름만 보여준다
+/// 있다. android 폴더가 없거나 build.gradle 파싱에 실패해도 조용히 None - 화면은 앱 이름만 보여준다
 /// (하드 에러 아님, key_scan.rs 전체의 관대한 처리 철학과 동일).
 #[tauri::command]
 pub async fn get_project_app_id(app: AppHandle, project_id: String) -> Result<Option<String>, String> {
@@ -585,16 +587,16 @@ pub async fn get_project_app_id(app: AppHandle, project_id: String) -> Result<Op
 
 // ── 앱 설정(1차, 설정 화면) ───────────────────────────────────────────────────
 // 실제 IO/Flutter 자동 감지·검증은 settings.rs 가 담당한다(위 서명키 관리 커맨드들과 같은 "엔진 원칙"
-// 경계 — 여기는 AppHandle 해석 + spawn_blocking(외부 프로세스를 쓰는 것만) 만 한다).
+// 경계 - 여기는 AppHandle 해석 + spawn_blocking(외부 프로세스를 쓰는 것만) 만 한다).
 
-/// 설정 화면 초기 로드 — 파일이 없거나 손상됐어도 기본값을 돌려준다(하드 에러 없음, settings.rs::
+/// 설정 화면 초기 로드 - 파일이 없거나 손상됐어도 기본값을 돌려준다(하드 에러 없음, settings.rs::
 /// load_settings_from_dir 문서 참고).
 #[tauri::command]
 pub async fn get_settings(app: AppHandle) -> Result<AppSettings, String> {
     settings::load_settings(&app)
 }
 
-/// 설정 화면이 필드 하나가 바뀔 때마다(자동 저장, 별도 "저장" 버튼 없음) 전체 스냅샷을 저장한다 —
+/// 설정 화면이 필드 하나가 바뀔 때마다(자동 저장, 별도 "저장" 버튼 없음) 전체 스냅샷을 저장한다 -
 /// 필드가 몇 개 안 돼 read-modify-write 를 프론트(useSettings)에서 하는 편이 부분 patch 커맨드를 따로
 /// 만드는 것보다 단순하다.
 #[tauri::command]
@@ -603,9 +605,9 @@ pub async fn set_settings(app: AppHandle, new_settings: AppSettings) -> Result<A
     Ok(new_settings)
 }
 
-/// Flutter SDK 자동 감지("자동 감지" 버튼) — PATH(보강 포함) 또는 흔한 설치 위치에서 찾는다. 파일시스템
+/// Flutter SDK 자동 감지("자동 감지" 버튼) - PATH(보강 포함) 또는 흔한 설치 위치에서 찾는다. 파일시스템
 /// 탐색 + `which` 실행이 있어 run_preflight 와 동일하게 spawn_blocking 으로 async 런타임을 막지 않는다.
-/// 못 찾으면 Ok(None)(에러 아님 — 프론트가 "직접 입력해 주세요" 안내로 바꾼다).
+/// 못 찾으면 Ok(None)(에러 아님 - 프론트가 "직접 입력해 주세요" 안내로 바꾼다).
 #[tauri::command]
 pub async fn detect_flutter_sdk() -> Result<Option<String>, String> {
     tauri::async_runtime::spawn_blocking(settings::detect_flutter_path)
@@ -613,7 +615,7 @@ pub async fn detect_flutter_sdk() -> Result<Option<String>, String> {
         .map_err(|e| format!("Flutter를 찾는 중 문제가 발생했어요: {e}"))
 }
 
-/// 주어진 경로가 실제 Flutter 인지 확인한다 — 설정 화면이 입력/감지된 경로의 유효성을 "유효하면
+/// 주어진 경로가 실제 Flutter 인지 확인한다 - 설정 화면이 입력/감지된 경로의 유효성을 "유효하면
 /// flutter --version 첫 줄 표시"에 쓴다.
 #[tauri::command]
 pub async fn check_flutter_path(path: String) -> Result<String, String> {
@@ -623,15 +625,15 @@ pub async fn check_flutter_path(path: String) -> Result<String, String> {
     join_result
 }
 
-/// 서명키 안전 보관 볼트 폴더 경로(표시용) — store::keystore_vault_dir 그대로(없으면 여기서 만들어짐).
+/// 서명키 안전 보관 볼트 폴더 경로(표시용) - store::keystore_vault_dir 그대로(없으면 여기서 만들어짐).
 #[tauri::command]
 pub async fn get_keystore_vault_path(app: AppHandle) -> Result<String, String> {
     let vault_dir = store::keystore_vault_dir(&app)?;
     Ok(vault_dir.to_string_lossy().to_string())
 }
 
-/// 서명키 안전 보관 볼트 폴더를 Finder 로 연다(설정 화면) — 경로는 프론트에서 받지 않고 항상
-/// store::keystore_vault_dir(&app) 가 돌려주는 값만 연다(엔진 원칙 — 임의 경로를 열지 않는다). macOS
+/// 서명키 안전 보관 볼트 폴더를 Finder 로 연다(설정 화면) - 경로는 프론트에서 받지 않고 항상
+/// store::keystore_vault_dir(&app) 가 돌려주는 값만 연다(엔진 원칙 - 임의 경로를 열지 않는다). macOS
 /// `open` 커맨드를 고정 인자로 실행할 뿐 셸을 거치지 않는다(child_env.rs::kill_process_group 과 동일한
 /// "Command::new + 고정 argv" 원칙).
 #[tauri::command]
@@ -654,7 +656,7 @@ pub async fn open_keystore_vault(app: AppHandle) -> Result<(), String> {
 }
 
 /// 설정 화면 "정보" 섹션의 외부 링크(GitHub 저장소)를 시스템 기본 브라우저로 연다. https:// 로
-/// 시작하는 값만 허용한다(로컬 파일·커스텀 스킴 실행 방지) — 지금은 GitHub 저장소 링크 하나뿐이라
+/// 시작하는 값만 허용한다(로컬 파일·커스텀 스킴 실행 방지) - 지금은 GitHub 저장소 링크 하나뿐이라
 /// 화이트리스트까지는 과하지만 최소한 스킴은 제한한다. open_keystore_vault 와 동일하게 셸을 거치지
 /// 않는다.
 #[tauri::command]
@@ -678,17 +680,175 @@ pub async fn open_external_url(url: String) -> Result<(), String> {
     join_result
 }
 
-/// CLI 서브커맨드 문서 목록(3단계, bildorak-cli) — 설정 화면 "CLI / 자동화" 섹션에 쓴다. build.rs::
-/// cli_manifest() 를 그대로 반환할 뿐이다 — 그 함수 문서 참고: clap --help 문구(cli.rs)와 이 화면
+/// CLI 서브커맨드 문서 목록(3단계, bildorak-cli) - 설정 화면 "CLI / 자동화" 섹션에 쓴다. build.rs::
+/// cli_manifest() 를 그대로 반환할 뿐이다 - 그 함수 문서 참고: clap --help 문구(cli.rs)와 이 화면
 /// 둘 다 같은 데이터를 쓰는 단일 소스다. get_app_version 과 마찬가지로 컴파일 타임 상수라 외부 IO 없음.
 #[tauri::command]
 pub async fn get_cli_manifest() -> Vec<CliCommandDoc> {
     build::cli_manifest()
 }
 
-/// 앱 버전(Cargo.toml 의 version — tauri.conf.json/package.json 과 항상 같은 값으로 맞춰 관리한다) —
+/// 앱 버전(Cargo.toml 의 version - tauri.conf.json/package.json 과 항상 같은 값으로 맞춰 관리한다) -
 /// 설정 화면 "정보" 섹션에 쓴다. 컴파일 타임 상수라 외부 IO 가 없다.
 #[tauri::command]
 pub async fn get_app_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
+}
+
+// ── 릴리스 관리(1차 슬라이스) ──────────────────────────────────────────────────
+// 실제 등록/조회 로직은 releases.rs 가 담당한다 - 여기는 base_dir 조회 + read-modify-write 조립만 한다
+// (서명키 관리 커맨드들과 같은 "엔진 원칙" 경계). 무료 오픈소스라 게이트는 없다(signing_base_dir 와
+// 동일 이유 - model.rs 는 라이선스 개념을 모르는 경계를 유지한다).
+
+/// 릴리스 기록 저장 base_dir - signing_base_dir 와 동일하게 app_config_dir 그대로 쓴다.
+fn releases_base_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    store::app_config_dir(app)
+}
+
+/// 이 프로젝트의 릴리스 기록 전체 - 최신순(createdAt desc)으로 서버가 정렬해 돌려준다(프론트는 받은
+/// 순서 그대로 그리기만 한다). 등록 안 된 project_id 를 넘겨도(예: 프로젝트가 나중에 삭제된 경우)
+/// get_build_history 와 동일하게 하드 에러 없이 빈 목록으로 물러난다.
+#[tauri::command]
+pub async fn list_releases(app: AppHandle, project_id: String) -> Result<Vec<ReleaseRecord>, String> {
+    let base_dir = releases_base_dir(&app)?;
+    let mut project_releases: Vec<ReleaseRecord> = releases::load_releases_from_dir(&base_dir)?
+        .into_iter()
+        .filter(|r| r.project_id == project_id)
+        .collect();
+    project_releases.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    Ok(project_releases)
+}
+
+/// 새 릴리스 기록을 만든다 - link_signing_key 와 동일하게 project_id 존재 확인부터 한다(등록 안 된
+/// 프로젝트에 달아 두면 나중에 찾을 방법이 없어진다). status 를 처음부터 released 로 등록하면 released_at
+/// 도 같은 시점으로 채운다(update_release 의 "처음 전이" 규칙과 동일 원칙).
+#[tauri::command]
+pub async fn create_release(
+    app: AppHandle,
+    project_id: String,
+    version: String,
+    build_number: Option<String>,
+    channel: ReleaseChannel,
+    status: ReleaseStatus,
+    notes: String,
+) -> Result<ReleaseRecord, String> {
+    find_project(&app, &project_id)?;
+    let base_dir = releases_base_dir(&app)?;
+    let now = chrono::Utc::now().to_rfc3339();
+    let record = ReleaseRecord {
+        id: uuid::Uuid::new_v4().to_string(),
+        project_id,
+        version,
+        build_number,
+        channel,
+        status,
+        notes,
+        created_at: now.clone(),
+        released_at: if status == ReleaseStatus::Released { Some(now.clone()) } else { None },
+        updated_at: now,
+    };
+    let mut all_releases = releases::load_releases_from_dir(&base_dir)?;
+    all_releases.push(record.clone());
+    releases::save_releases_to_dir(&base_dir, &all_releases)?;
+    Ok(record)
+}
+
+/// status 가 released 로 바뀔 때 released_at 을 "새로" 스탬프해야 하는지 판정하는 순수 로직 - 기준은
+/// released_at 이 아직 비어있는지(한 번이라도 released 로 확정된 적 있는지)뿐이다. 직전 status 만 보면
+/// released → approved → released 로 왕복할 때 released_at 이 재스탬프돼(approved 로 내려간 순간
+/// "직전 status == released" 가 false 가 되므로) 최초 출시 시점을 잃어버린다(리뷰 지적, 아래 테스트가
+/// 이 왕복 시나리오를 고정한다) - AppHandle 의존 없는 순수 함수라 commands.rs 에서 드물게 직접
+/// 단위 테스트한다.
+fn should_stamp_released_at(new_status: ReleaseStatus, existing_released_at: &Option<String>) -> bool {
+    new_status == ReleaseStatus::Released && existing_released_at.is_none()
+}
+
+/// 릴리스 기록을 수정한다 - created_at 은 그대로 보존하고 updated_at 만 지금 시각으로 갱신한다.
+/// released_at 은 should_stamp_released_at 이 true 일 때만 자동으로 스탬프된다(이미 released_at 이 있는
+/// 레코드는 status 가 어떻게 바뀌어도 갱신되지 않는다 - 최초 출시 시점을 계속 보존).
+#[tauri::command]
+pub async fn update_release(
+    app: AppHandle,
+    release_id: String,
+    version: String,
+    build_number: Option<String>,
+    channel: ReleaseChannel,
+    status: ReleaseStatus,
+    notes: String,
+) -> Result<ReleaseRecord, String> {
+    let base_dir = releases_base_dir(&app)?;
+    let mut all_releases = releases::load_releases_from_dir(&base_dir)?;
+    let existing = all_releases
+        .iter_mut()
+        .find(|r| r.id == release_id)
+        .ok_or_else(|| "등록된 릴리스를 찾지 못했어요.".to_string())?;
+    let stamp_released_at = should_stamp_released_at(status, &existing.released_at);
+    existing.version = version;
+    existing.build_number = build_number;
+    existing.channel = channel;
+    existing.status = status;
+    existing.notes = notes;
+    existing.updated_at = chrono::Utc::now().to_rfc3339();
+    if stamp_released_at {
+        existing.released_at = Some(existing.updated_at.clone());
+    }
+    let updated = existing.clone();
+    releases::save_releases_to_dir(&base_dir, &all_releases)?;
+    Ok(updated)
+}
+
+/// 릴리스 기록을 지운다 - remove_signing_key 와 동일하게 release_id 로만 찾는다(프로젝트가 이미
+/// 삭제됐어도 남은 기록을 정리할 수 있어야 한다).
+#[tauri::command]
+pub async fn delete_release(app: AppHandle, release_id: String) -> Result<(), String> {
+    let base_dir = releases_base_dir(&app)?;
+    let mut all_releases = releases::load_releases_from_dir(&base_dir)?;
+    let before = all_releases.len();
+    all_releases.retain(|r| r.id != release_id);
+    if all_releases.len() == before {
+        return Err("등록된 릴리스를 찾지 못했어요.".to_string());
+    }
+    releases::save_releases_to_dir(&base_dir, &all_releases)
+}
+
+/// 프로젝트 폴더의 pubspec.yaml 을 지금 다시 읽어 버전/빌드번호를 돌려준다(등록 시점 스냅샷이 아니라
+/// 실시간) - 새 릴리스 폼의 버전 pre-fill 에 쓴다. pubspec::detect_project 를 그대로 재사용(register_project
+/// 와 동일한 파싱, 저장은 하지 않고 읽기만 한다). get_project_app_id 와 동일하게 가벼운 파일 IO 뿐이라
+/// spawn_blocking 을 쓰지 않는다. 폴더가 옮겨졌거나 pubspec.yaml 이 사라졌으면 Err - 프론트가
+/// project.version 스냅샷으로 조용히 폴백한다(ProjectCard.tsx 관례).
+#[tauri::command]
+pub async fn get_project_current_version(
+    app: AppHandle,
+    project_id: String,
+) -> Result<ProjectCurrentVersion, String> {
+    let project = find_project(&app, &project_id)?;
+    let detected = pubspec::detect_project(Path::new(&project.repo_path))?;
+    Ok(ProjectCurrentVersion { version: detected.version, build_number: detected.build_number })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn should_stamp_released_at_only_when_not_already_set() {
+        assert!(should_stamp_released_at(ReleaseStatus::Released, &None));
+        assert!(!should_stamp_released_at(
+            ReleaseStatus::Released,
+            &Some("2026-01-01T00:00:00+00:00".to_string())
+        ));
+        assert!(!should_stamp_released_at(ReleaseStatus::Approved, &None));
+    }
+
+    /// 회귀 방지 - released → approved → released 로 왕복해도 최초 released_at 은 그대로 유지돼야
+    /// 한다(리뷰 지적 시나리오). 예전 코드는 "직전 status == released" 만 봐서 approved 를 한 번
+    /// 거치면 released_at 을 다시 스탬프해 버렸다.
+    #[test]
+    fn should_stamp_released_at_stays_false_after_round_trip_through_another_status() {
+        let already_released_at = Some("2026-01-01T00:00:00+00:00".to_string());
+        // released -> approved (released_at 은 그대로 남아있는 상태에서 status 만 approved 로 바뀜)
+        assert!(!should_stamp_released_at(ReleaseStatus::Approved, &already_released_at));
+        // approved -> released 로 되돌아가도 released_at 이 이미 있으니 재스탬프하면 안 된다.
+        assert!(!should_stamp_released_at(ReleaseStatus::Released, &already_released_at));
+    }
 }
