@@ -50,10 +50,16 @@ chmod 600 ~/.tauri/bildorak-updater.key
 
 ```bash
 cd bildorak
+RUSTFLAGS="--remap-path-prefix=$HOME=/build" \
 TAURI_SIGNING_PRIVATE_KEY=$(cat ~/.tauri/bildorak-updater.key) \
 TAURI_SIGNING_PRIVATE_KEY_PASSWORD="" \
 npm run tauri build
 ```
+
+`RUSTFLAGS` 의 remap 은 배포 바이너리에 박히는 빌드 머신 경로(`/Users/<계정명>/...`)를 중립
+경로(`/build/...`)로 치환한다 - 개인 흔적 제거용이며 앱 동작에는 영향이 없다. 빌드 후
+`strings <바이너리> | grep -c "/Users/"` 가 0 인지 확인한다. (플래그가 바뀌면 전체 재컴파일이라
+평소보다 오래 걸린다.)
 
 ⚠️ **`TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""` 를 꼭 같이 넘겨야 한다** — 이 변수를 아예 안 주면
 패스프레이즈 없는 키인데도 Tauri CLI 가 "Decrypting updater signing key, expect a prompt for
